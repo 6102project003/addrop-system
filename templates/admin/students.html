@@ -3,12 +3,42 @@
 {% block content %}
 <h2>Manage Students</h2>
 
+<!-- Upload Section -->
+<div class="upload-section" style="margin: 20px 0; padding: 20px; background: #f8f9fa; border-radius: 8px; border: 1px dashed #3498db;">
+    <h3 style="margin-bottom: 15px; color: #2c3e50;">Bulk Upload Students</h3>
+    
+    <div style="display: flex; gap: 20px; flex-wrap: wrap;">
+        <!-- Upload Students CSV -->
+        <div style="flex: 1; min-width: 250px;">
+            <h4 style="margin: 10px 0; color: #34495e;">Upload Students (CSV)</h4>
+            <form method="POST" action="{{ url_for('admin_upload_students') }}" enctype="multipart/form-data">
+                <input type="file" name="file" accept=".csv" required style="padding: 10px; border: 1px solid #ddd; border-radius: 4px; background: white; width: 100%;">
+                <button type="submit" style="margin-top: 10px; padding: 8px 16px; background-color: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer;">Upload Students</button>
+            </form>
+            <p style="font-size: 0.9rem; color: #666; margin-top: 10px;">
+                <strong>CSV format:</strong> studentId,name,password<br>
+                (If password is empty, studentId will be used as default password)
+            </p>
+        </div>
+    </div>
+    
+    <!-- Sample CSV Links -->
+    <div style="margin-top: 20px;">
+        <p style="margin-bottom: 5px;">Sample CSV templates:</p>
+        <a href="#" onclick="downloadSampleCourses()" style="color: #3498db; text-decoration: none; margin-right: 15px;">Download Sample Courses CSV</a> |
+        <a href="#" onclick="downloadSampleStudentsWithPassword()" style="color: #3498db; text-decoration: none; margin-left: 15px;">Download Sample Students CSV (with password)</a>
+    </div>
+</div>
+
+<!-- Students Table -->
 <table class="courses-table" style="width: 100%; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-top: 20px;">
     <thead>
         <tr>
             <th style="background-color: #34495e; color: white; padding: 1rem; text-align: left;">Student ID</th>
             <th style="background-color: #34495e; color: white; padding: 1rem; text-align: left;">Name</th>
+            <th style="background-color: #34495e; color: white; padding: 1rem; text-align: left;">Password</th>
             <th style="background-color: #34495e; color: white; padding: 1rem; text-align: left;">Enrolled Courses</th>
+            <th style="background-color: #34495e; color: white; padding: 1rem; text-align: left;">Actions</th>
         </tr>
     </thead>
     <tbody>
@@ -16,9 +46,105 @@
         <tr>
             <td style="padding: 1rem; border-bottom: 1px solid #ecf0f1;">{{ student.studentId }}</td>
             <td style="padding: 1rem; border-bottom: 1px solid #ecf0f1;">{{ student.name }}</td>
+            <td style="padding: 1rem; border-bottom: 1px solid #ecf0f1;">••••••••</td>
             <td style="padding: 1rem; border-bottom: 1px solid #ecf0f1;">{{ student.enrolled_course_names }}</td>
+            <td style="padding: 1rem; border-bottom: 1px solid #ecf0f1;">
+                <button onclick="resetPassword('{{ student.studentId }}')" style="padding: 0.3rem 1rem; background-color: #f39c12; color: white; border: none; border-radius: 4px; cursor: pointer; margin-right: 0.3rem;">Reset Password</button>
+                <a href="#" onclick="deleteStudent('{{ student.studentId }}')" 
+                   style="padding: 0.3rem 1rem; background-color: #e74c3c; color: white; text-decoration: none; border-radius: 4px; display: inline-block;">Delete</a>
+            </td>
         </tr>
         {% endfor %}
     </tbody>
 </table>
+
+<script>
+function downloadSampleCourses() {
+    const content = "courseId,name,credits,capacity,department,instructor,day,time\n" +
+                    "COMP1234,Cloud Computing,3,50,Computing,Dr. Chan,Mon,09:00-12:00\n" +
+                    "COMP2345,Database Systems,3,40,Computing,Prof. Wong,Wed,14:00-17:00\n" +
+                    "COMP3456,Network Security,3,45,Computing,Dr. Lee,Tue,10:00-13:00";
+    
+    const blob = new Blob([content], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'sample_courses.csv';
+    a.click();
+    window.URL.revokeObjectURL(url);
+}
+
+function downloadSampleStudentsWithPassword() {
+    const content = "studentId,name,password\n" +
+                    "s100001,John Smith,s100001\n" +
+                    "s100002,Mary Chen,mary123\n" +
+                    "s100003,David Wong,david2024\n" +
+                    "s100004,Sarah Lee,sarah123\n" +
+                    "s100005,Michael Chan,password123\n" +
+                    "s100006,Jennifer Wu,jennifer2024\n" +
+                    "s100007,Robert Johnson,robert123\n" +
+                    "s100008,Patricia Williams,patricia123\n" +
+                    "s100009,James Brown,james2024\n" +
+                    "s100010,Linda Davis,linda123";
+    
+    const blob = new Blob([content], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'sample_students_with_password.csv';
+    a.click();
+    window.URL.revokeObjectURL(url);
+}
+
+function resetPassword(studentId) {
+    if (confirm('Reset password for student ' + studentId + '? Password will be reset to student ID.')) {
+        // TODO: Implement password reset functionality
+        fetch('/admin/student/' + studentId + '/reset-password', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'}
+        })
+        .then(response => response.json())
+        .then(data => {
+            alert(data.message || 'Password reset successfully');
+            location.reload();
+        })
+        .catch(error => {
+            alert('Error resetting password');
+        });
+    }
+}
+
+function deleteStudent(studentId) {
+    if (confirm('Are you sure you want to delete student ' + studentId + '? This will also remove all their enrollments.')) {
+        // TODO: Implement delete functionality
+        fetch('/admin/student/' + studentId + '/delete', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'}
+        })
+        .then(response => response.json())
+        .then(data => {
+            alert(data.message || 'Student deleted successfully');
+            location.reload();
+        })
+        .catch(error => {
+            alert('Error deleting student');
+        });
+    }
+}
+</script>
+
+<style>
+.upload-section a:hover {
+    text-decoration: underline !important;
+}
+.upload-section input[type="file"]:hover {
+    border-color: #3498db;
+}
+.upload-section button:hover {
+    background-color: #2980b9 !important;
+}
+.courses-table tr:hover {
+    background-color: #f8f9fa;
+}
+</style>
 {% endblock %}
