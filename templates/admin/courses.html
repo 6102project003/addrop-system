@@ -3,8 +3,50 @@
 {% block content %}
 <h2>Manage Courses</h2>
 
-<button onclick="toggleForm()" class="btn-primary">Add New Course</button>
+<!-- Upload Section -->
+<div class="upload-section" style="margin: 20px 0; padding: 20px; background: #f8f9fa; border-radius: 8px; border: 1px dashed #3498db;">
+    <h3 style="margin-bottom: 15px; color: #2c3e50;">Bulk Upload</h3>
+    
+    <div style="display: flex; gap: 20px; flex-wrap: wrap;">
+        <!-- Upload Courses CSV -->
+        <div style="flex: 1; min-width: 250px;">
+            <h4 style="margin: 10px 0; color: #34495e;">Upload Courses (CSV)</h4>
+            <form method="POST" action="{{ url_for('admin_upload_courses') }}" enctype="multipart/form-data">
+                <input type="file" name="file" accept=".csv" required style="padding: 10px; border: 1px solid #ddd; border-radius: 4px; background: white; width: 100%;">
+                <button type="submit" style="margin-top: 10px; padding: 8px 16px; background-color: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer;">Upload Courses</button>
+            </form>
+            <p style="font-size: 0.9rem; color: #666; margin-top: 10px;">
+                CSV format: courseId,name,credits,capacity,department,instructor,day,time
+            </p>
+        </div>
+        
+        <!-- Upload Students CSV -->
+        <div style="flex: 1; min-width: 250px;">
+            <h4 style="margin: 10px 0; color: #34495e;">Upload Students (CSV)</h4>
+            <form method="POST" action="{{ url_for('admin_upload_students') }}" enctype="multipart/form-data">
+                <input type="file" name="file" accept=".csv" required style="padding: 10px; border: 1px solid #ddd; border-radius: 4px; background: white; width: 100%;">
+                <button type="submit" style="margin-top: 10px; padding: 8px 16px; background-color: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer;">Upload Students</button>
+            </form>
+            <p style="font-size: 0.9rem; color: #666; margin-top: 10px;">
+                CSV format: studentId,name
+            </p>
+        </div>
+    </div>
+    
+    <!-- Sample CSV Links -->
+    <div style="margin-top: 20px;">
+        <p style="margin-bottom: 5px;">Sample CSV templates:</p>
+        <a href="#" onclick="downloadSampleCourses()" style="color: #3498db; text-decoration: none; margin-right: 15px;">Download Sample Courses CSV</a> |
+        <a href="#" onclick="downloadSampleStudents()" style="color: #3498db; text-decoration: none; margin-left: 15px;">Download Sample Students CSV</a>
+    </div>
+</div>
 
+<!-- Add New Course Button -->
+<button onclick="toggleForm()" class="btn-primary" style="padding: 0.75rem 1.5rem; background-color: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 1rem; margin-bottom: 20px;">
+    Add New Course
+</button>
+
+<!-- Add Course Form (hidden by default) -->
 <div id="courseForm" style="display: none;" class="course-form">
     <h3>New Course</h3>
     <form method="POST" action="{{ url_for('admin_add_course') }}">
@@ -46,37 +88,38 @@
             <label>Time:</label>
             <input type="text" name="schedule_time" value="09:00-12:00" placeholder="e.g. 09:00-12:00">
         </div>
-        <button type="submit">Save</button>
-        <button type="button" onclick="toggleForm()">Cancel</button>
+        <button type="submit" style="padding: 0.75rem 2rem; background-color: #27ae60; color: white; border: none; border-radius: 4px; cursor: pointer; margin-right: 1rem;">Save</button>
+        <button type="button" onclick="toggleForm()" style="padding: 0.75rem 2rem; background-color: #95a5a6; color: white; border: none; border-radius: 4px; cursor: pointer;">Cancel</button>
     </form>
 </div>
 
-<table class="courses-table">
+<!-- Courses Table -->
+<table class="courses-table" style="width: 100%; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-top: 20px;">
     <thead>
         <tr>
-            <th>ID</th>
-            <th>Name</th>
-            <th>Dept</th>
-            <th>Credits</th>
-            <th>Enrolled</th>
-            <th>Capacity</th>
-            <th>Actions</th>
+            <th style="background-color: #34495e; color: white; padding: 1rem; text-align: left;">ID</th>
+            <th style="background-color: #34495e; color: white; padding: 1rem; text-align: left;">Name</th>
+            <th style="background-color: #34495e; color: white; padding: 1rem; text-align: left;">Dept</th>
+            <th style="background-color: #34495e; color: white; padding: 1rem; text-align: left;">Credits</th>
+            <th style="background-color: #34495e; color: white; padding: 1rem; text-align: left;">Enrolled</th>
+            <th style="background-color: #34495e; color: white; padding: 1rem; text-align: left;">Capacity</th>
+            <th style="background-color: #34495e; color: white; padding: 1rem; text-align: left;">Actions</th>
         </tr>
     </thead>
     <tbody>
         {% for course in courses %}
         <tr>
-            <td>{{ course.courseId }}</td>
-            <td>{{ course.name }}</td>
-            <td>{{ course.department }}</td>
-            <td>{{ course.credits }}</td>
-            <td>{{ course.enrolled }}</td>
-            <td>{{ course.capacity }}</td>
-            <td>
-                <button onclick="editCourse('{{ course.courseId }}')">Edit</button>
+            <td style="padding: 1rem; border-bottom: 1px solid #ecf0f1;">{{ course.courseId }}</td>
+            <td style="padding: 1rem; border-bottom: 1px solid #ecf0f1;">{{ course.name }}</td>
+            <td style="padding: 1rem; border-bottom: 1px solid #ecf0f1;">{{ course.department }}</td>
+            <td style="padding: 1rem; border-bottom: 1px solid #ecf0f1;">{{ course.credits }}</td>
+            <td style="padding: 1rem; border-bottom: 1px solid #ecf0f1;">{{ course.enrolled }}</td>
+            <td style="padding: 1rem; border-bottom: 1px solid #ecf0f1;">{{ course.capacity }}</td>
+            <td style="padding: 1rem; border-bottom: 1px solid #ecf0f1;">
+                <button onclick="editCourse('{{ course.courseId }}')" style="padding: 0.3rem 1rem; background-color: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer; margin-right: 0.3rem;">Edit</button>
                 <a href="{{ url_for('admin_delete_course', course_id=course.courseId) }}" 
-                   class="delete-btn" 
-                   onclick="return confirm('Are you sure?')">Delete</a>
+                   style="padding: 0.3rem 1rem; background-color: #e74c3c; color: white; text-decoration: none; border-radius: 4px; display: inline-block;"
+                   onclick="return confirm('Are you sure you want to delete this course?')">Delete</a>
             </td>
         </tr>
         {% endfor %}
@@ -90,8 +133,64 @@ function toggleForm() {
 }
 
 function editCourse(courseId) {
-    // 簡單做法：redirect 去 edit page
-    window.location.href = `/admin/courses/edit/${courseId}`;
+    // For now, just show an alert
+    alert('Edit function for course: ' + courseId + ' - Please implement edit form');
+    // You can implement edit functionality here
+}
+
+function downloadSampleCourses() {
+    const content = "courseId,name,credits,capacity,department,instructor,day,time\n" +
+                    "COMP1234,Cloud Computing,3,50,Computing,Dr. Chan,Mon,09:00-12:00\n" +
+                    "COMP2345,Database Systems,3,40,Computing,Prof. Wong,Wed,14:00-17:00\n" +
+                    "COMP3456,Network Security,3,45,Computing,Dr. Lee,Tue,10:00-13:00\n" +
+                    "MATH1001,Calculus I,3,60,Mathematics,Prof. Lam,Thu,09:00-12:00\n" +
+                    "PHYS2001,Physics II,4,35,Physics,Dr. Cheng,Fri,14:00-17:00";
+    
+    const blob = new Blob([content], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'sample_courses.csv';
+    a.click();
+    window.URL.revokeObjectURL(url);
+}
+
+function downloadSampleStudents() {
+    const content = "studentId,name\n" +
+                    "s100001,John Smith\n" +
+                    "s100002,Mary Chen\n" +
+                    "s100003,David Wong\n" +
+                    "s100004,Sarah Lee\n" +
+                    "s100005,Michael Chan\n" +
+                    "s100006,Jennifer Wu\n" +
+                    "s100007,Robert Johnson\n" +
+                    "s100008,Patricia Williams\n" +
+                    "s100009,James Brown\n" +
+                    "s100005,Linda Davis";
+    
+    const blob = new Blob([content], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'sample_students.csv';
+    a.click();
+    window.URL.revokeObjectURL(url);
 }
 </script>
+
+<style>
+/* Additional styles for upload section */
+.upload-section a:hover {
+    text-decoration: underline !important;
+}
+.upload-section input[type="file"]:hover {
+    border-color: #3498db;
+}
+.upload-section button:hover {
+    background-color: #2980b9 !important;
+}
+.courses-table tr:hover {
+    background-color: #f8f9fa;
+}
+</style>
 {% endblock %}
