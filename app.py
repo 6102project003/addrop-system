@@ -573,6 +573,103 @@ def student_change_password():
     
     return render_template('student/change_password.html', user=session)
 
+def enroll_course(student_id, course_id):
+    # 檢查課程是否存在
+    course_resp = courses_table.get_item(Key={'courseId': course_id})
+    if 'Item' not in course_resp:
+        return jsonify({'error': 'Course not found'}), 404
+    
+    course = course_resp['Item']
+    
+    # 檢查名額
+    if course['enrolled'] >= course['capacity']:
+        # 加入候補
+        waitlist = course.get('waitlist', [])
+        if student_id not in waitlist:
+            waitlist.append(student_id)
+            courses_table.update_item(
+                Key={'courseId': course_id},
+                UpdateExpression='SET waitlist = :w',
+                ExpressionAttributeValues={':w': waitlist}
+            )
+        return jsonify({'message': 'Course full, added to waitlist'})
+    
+    # ===== 時間衝突檢查 =====
+    student_resp = students_table.get_item(Key={'studentId': student_id})
+    student = student_resp.get('Item', {})
+    enrolled_ids = student.get('enrolledCourses', [])
+    
+    # 拎新課程嘅時間
+    new_day = course.get('schedule', {}).get('day')
+    new_time = course.get('schedule', {}).get('time')
+    
+    # 如果新課程冇時間，就當冇衝突
+    if not new_day or not new_time:
+        return jsonify({'error': 'Course schedule not available'}), 400
+    
+    # 拆新課程嘅開始同結束時間
+    try:
+        new_start, new_end = new_time.split('-')
+    except:
+        return jsonify({'error': 'Invalid course time format'}), 400
+    
+    # Check 每一科已選課程
+    for cid in enrolled_ids:
+        c = courses_table.get_item(Key={'courseId': cid}).get('Item', {})
+        if not c:
+            continue
+            
+        old_day = c.get('schedule', {}).get('day')
+        old_time = c.get('schedule', {}).get('time')
+        
+        # 如果唔同日子，就冇衝突
+        if old_day != new_day:
+            continue
+            
+        if not old_time:
+            continue
+            
+        try:
+            old_start, old_end = old_time.split('-')
+        except:
+            continue
+        
+        # 時間衝突檢查：
+        # 新課程 start < 舊課程 end  AND 新課程 end > 舊課程 start
+        if new_start < old_end and new_end > old_start:
+            return jsonify({'error': f'Schedule conflict with {c.get("courseId")} - {c.get("name")}'}), 400
+    
+    # ===== 時間檢查完畢 =====
+    
+    # 加選
+    enrollment_id = str(uuid.uuid4())
+    enrollments_table.put_item(Item={
+        'enrollmentId': enrollment_id,
+        'studentId': student_id,
+        'courseId': course_id,
+        'timestamp': datetime.utcnow().isoformat(),
+        'status': 'enrolled'
+    })
+    
+    # 更新課程人數
+    courses_table.update_item(
+        Key={'courseId': course_id},
+        UpdateExpression='SET enrolled = enrolled + :inc',
+        ExpressionAttributeValues={':inc': 1}
+    )
+    
+    # 更新學生記錄
+    students_table.update_item(
+        Key={'studentId': student_id},
+        UpdateExpression='SET enrolledCourses = list_append(if_not_exists(enrolledCourses, :empty), :course)',
+        ExpressionAttributeValues={
+            ':course': [course_id],
+            ':empty': []
+        }
+    )
+    
+    return jsonify({'message': 'Enrollment successful'})
+
 # ========== 統計 API（俾前端 chart.js 用）=========
 @app.route('/api/stats/enrollment-by-dept')
 @login_required
