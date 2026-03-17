@@ -3,7 +3,33 @@
 {% block content %}
 <h2>Manage Students</h2>
 
-<!-- Add New Student Button - 同 Manage Courses 一模一樣位置 -->
+<!-- Upload Section - 放最上面 -->
+<div class="upload-section" style="margin: 20px 0; padding: 20px; background: #f8f9fa; border-radius: 8px; border: 1px dashed #3498db;">
+    <h3 style="margin-bottom: 15px; color: #2c3e50;">Bulk Upload Students</h3>
+    
+    <div style="display: flex; gap: 20px; flex-wrap: wrap;">
+        <!-- Upload Students CSV -->
+        <div style="flex: 1; min-width: 250px;">
+            <h4 style="margin: 10px 0; color: #34495e;">Upload Students (CSV)</h4>
+            <form method="POST" action="{{ url_for('admin_upload_students') }}" enctype="multipart/form-data">
+                <input type="file" name="file" accept=".csv" required style="padding: 10px; border: 1px solid #ddd; border-radius: 4px; background: white; width: 100%;">
+                <button type="submit" style="margin-top: 10px; padding: 8px 16px; background-color: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer;">Upload Students</button>
+            </form>
+            <p style="font-size: 0.9rem; color: #666; margin-top: 10px;">
+                <strong>CSV format:</strong> studentId,name,password<br>
+                (If password is empty, studentId will be used as default password)
+            </p>
+        </div>
+    </div>
+    
+    <!-- Sample CSV Links - Only Students -->
+    <div style="margin-top: 20px;">
+        <p style="margin-bottom: 5px;">Sample CSV template:</p>
+        <a href="#" onclick="downloadSampleStudents()" style="color: #3498db; text-decoration: none;">Download Sample Students CSV</a>
+    </div>
+</div>
+
+<!-- Add New Student Button -->
 <button onclick="toggleForm()" class="btn-primary" style="padding: 0.75rem 1.5rem; background-color: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 1rem; margin-bottom: 20px;">
     Add New Student
 </button>
@@ -28,32 +54,6 @@
         <button type="submit" style="padding: 0.75rem 2rem; background-color: #27ae60; color: white; border: none; border-radius: 4px; cursor: pointer; margin-right: 1rem;">Save</button>
         <button type="button" onclick="toggleForm()" style="padding: 0.75rem 2rem; background-color: #95a5a6; color: white; border: none; border-radius: 4px; cursor: pointer;">Cancel</button>
     </form>
-</div>
-
-<!-- Upload Section - Only Students CSV -->
-<div class="upload-section" style="margin: 20px 0; padding: 20px; background: #f8f9fa; border-radius: 8px; border: 1px dashed #3498db;">
-    <h3 style="margin-bottom: 15px; color: #2c3e50;">Bulk Upload Students</h3>
-    
-    <div style="display: flex; gap: 20px; flex-wrap: wrap;">
-        <!-- Upload Students CSV -->
-        <div style="flex: 1; min-width: 250px;">
-            <h4 style="margin: 10px 0; color: #34495e;">Upload Students (CSV)</h4>
-            <form method="POST" action="{{ url_for('admin_upload_students') }}" enctype="multipart/form-data">
-                <input type="file" name="file" accept=".csv" required style="padding: 10px; border: 1px solid #ddd; border-radius: 4px; background: white; width: 100%;">
-                <button type="submit" style="margin-top: 10px; padding: 8px 16px; background-color: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer;">Upload Students</button>
-            </form>
-            <p style="font-size: 0.9rem; color: #666; margin-top: 10px;">
-                <strong>CSV format:</strong> studentId,name,password<br>
-                (If password is empty, studentId will be used as default password)
-            </p>
-        </div>
-    </div>
-    
-    <!-- Sample CSV Links - Only Students -->
-    <div style="margin-top: 20px;">
-        <p style="margin-bottom: 5px;">Sample CSV template:</p>
-        <a href="#" onclick="downloadSampleStudents()" style="color: #3498db; text-decoration: none;">Download Sample Students CSV</a>
-    </div>
 </div>
 
 <!-- Students Table -->
