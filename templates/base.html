@@ -17,6 +17,7 @@
             {% if user.role == 'student' %}
                 <a href="{{ url_for('student_courses') }}">Course Catalog</a>
                 <a href="{{ url_for('student_schedule') }}">My Schedule</a>
+                <a href="{{ url_for('student_change_password') }}">Change Password</a>  <!-- 加呢行 -->
             {% else %}
                 <a href="{{ url_for('admin_courses') }}">Manage Courses</a>
                 <a href="{{ url_for('admin_students') }}">Manage Students</a>
