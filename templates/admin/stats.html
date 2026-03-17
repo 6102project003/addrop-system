@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>Enrollment Statistics</h2>
+
+<div class="chart-row">
+    <div class="chart-box">
+        <h3>Enrollments by Department</h3>
+        <canvas id="deptChart"></canvas>
+    </div>
+    
+    <div class="chart-box">
+        <h3>Most Popular Courses</h3>
+        <canvas id="popularChart"></canvas>
+    </div>
+</div>
+
+<div class="stats-table" id="courseDetails">
+    <h3>Course Details</h3>
+    <table>
+        <thead>
+            <tr>
+                <th>Course ID</th>
+                <th>Name</th>
+                <th>Enrolled</th>
+                <th>Capacity</th>
+                <th>Fill Rate</th>
+            </tr>
+        </thead>
+        <tbody id="courseTableBody">
+        </tbody>
+    </table>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // 載入部門統計
+    fetch('/api/stats/enrollment-by-dept')
+        .then(res => res.json())
+        .then(data => {
+            new Chart(document.getElementById('deptChart'), {
+                type: 'pie',
+                data: {
+                    labels: data.map(d => d.department),
+                    datasets: [{
+                        data: data.map(d => d.count),
+                        backgroundColor: [
+                            'rgba(255, 99, 132, 0.6)',
+                            'rgba(54, 162, 235, 0.6)',
+                            'rgba(255, 206, 86, 0.6)',
+                            'rgba(75, 192, 192, 0.6)',
+                            'rgba(153, 102, 255, 0.6)',
+                            'rgba(255, 159, 64, 0.6)'
+                        ]
+                    }]
+                }
+            });
+        });
+    
+    // 載入熱門課程
+    fetch('/api/stats/popular-courses')
+        .then(res => res.json())
+        .then(data => {
+            new Chart(document.getElementById('popularChart'), {
+                type: 'bar',
+                data: {
+                    labels: data.map(c => c.courseId),
+                    datasets: [
+                        {
+                            label: 'Enrolled',
+                            data: data.map(c => c.enrolled),
+                            backgroundColor: 'rgba(54, 162, 235, 0.6)'
+                        },
+                        {
+                            label: 'Capacity',
+                            data: data.map(c => c.capacity),
+                            backgroundColor: 'rgba(255, 99, 132, 0.6)'
+                        }
+                    ]
+                },
+                options: {
+                    scales: { y: { beginAtZero: true } }
+                }
+            });
+            
+            // 顯示課程詳細表
+            const tbody = document.getElementById('courseTableBody');
+            data.forEach(course => {
+                const row = tbody.insertRow();
+                row.innerHTML = `
+                    <td>${course.courseId}</td>
+                    <td>${course.name}</td>
+                    <td>${course.enrolled}</td>
+                    <td>${course.capacity}</td>
+                    <td>${Math.round(course.enrolled / course.capacity * 100)}%</td>
+                `;
+            });
+        });
+});
+</script>
+{% endblock %}

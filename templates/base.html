@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Add/Drop System</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    {% if user %}
+    <nav class="navbar">
+        <div class="nav-brand">
+            <a href="/">Add/Drop System</a>
+        </div>
+        <div class="nav-menu">
+            {% if user.role == 'student' %}
+                <a href="{{ url_for('student_courses') }}">Course Catalog</a>
+                <a href="{{ url_for('student_schedule') }}">My Schedule</a>
+            {% else %}
+                <a href="{{ url_for('admin_courses') }}">Manage Courses</a>
+                <a href="{{ url_for('admin_stats') }}">Statistics</a>
+            {% endif %}
+        </div>
+        <div class="nav-user">
+            <span>Welcome, {{ user.user_name }}</span>
+            <a href="{{ url_for('logout') }}" class="logout-btn">Logout</a>
+        </div>
+    </nav>
+    {% endif %}
+
+    <div class="container">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }}">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        {% block content %}{% endblock %}
+    </div>
+
+    <script src="{{ url_for('static', filename='js/charts.js') }}"></script>
+</body>
+</html>

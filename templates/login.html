@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="login-container">
+    <h2>Course Registration System</h2>
+    <form method="POST">
+        <div>
+            <label>User ID:</label>
+            <input type="text" name="user_id" placeholder="e.g. s123456 or admin" required>
+        </div>
+        <div>
+            <label>Password:</label>
+            <input type="password" name="password" placeholder="admin123 for admin" required>
+        </div>
+        {% if error %}
+        <div class="error">{{ error }}</div>
+        {% endif %}
+        <button type="submit">Login</button>
+    </form>
+    <div class="demo-hint">
+        <p>Demo: admin / admin123</p>
+        <p>Student: any ID starting with 's' (auto-register)</p>
+    </div>
+</div>
+{% endblock %}

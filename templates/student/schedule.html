@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>My Schedule</h2>
+
+{% set days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'] %}
+{% set times = ['09:00', '10:00', '11:00', '12:00', '14:00', '15:00', '16:00'] %}
+
+<div class="schedule-grid">
+    <div class="schedule-header">
+        <div class="time-col"></div>
+        {% for day in days %}
+        <div class="day-col">{{ day }}</div>
+        {% endfor %}
+    </div>
+    
+    {% for time in times %}
+    <div class="schedule-row">
+        <div class="time-col">{{ time }}</div>
+        {% for day in days %}
+        <div class="course-cell">
+            {% for course in courses %}
+                {% if course.schedule.day == day and time in course.schedule.time %}
+                <div class="schedule-course">
+                    <strong>{{ course.courseId }}</strong>
+                    <div>{{ course.name }}</div>
+                </div>
+                {% endif %}
+            {% endfor %}
+        </div>
+        {% endfor %}
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}
