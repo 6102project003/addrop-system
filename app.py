@@ -464,6 +464,36 @@ def admin_upload_students():
     return redirect(url_for('admin_students'))
 
 # ========== Admin Student Management ==========
+@app.route('/admin/student/add', methods=['POST'])
+@login_required
+@admin_required
+def admin_add_student():
+    student_id = request.form['studentId']
+    name = request.form['name']
+    password = request.form.get('password', '')
+    
+    # 如果 password 留空，用 student ID 入面嘅數字
+    if not password:
+        password = student_id.replace('s', '')
+    
+    # 檢查學生是否已經存在
+    response = students_table.get_item(Key={'studentId': student_id})
+    if 'Item' in response:
+        flash(f'Student {student_id} already exists', 'error')
+        return redirect(url_for('admin_students'))
+    
+    # 新增學生
+    student = {
+        'studentId': student_id,
+        'name': name,
+        'password': password,
+        'enrolledCourses': []
+    }
+    
+    students_table.put_item(Item=student)
+    flash(f'Student {student_id} added successfully', 'success')
+    return redirect(url_for('admin_students'))
+
 @app.route('/admin/student/<student_id>/reset-password', methods=['POST'])
 @login_required
 @admin_required
