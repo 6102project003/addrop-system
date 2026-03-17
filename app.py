@@ -10,7 +10,7 @@ app = Flask(__name__)
 app.secret_key = 'your-secret-key-here'  # 改做安全嘅 key
 
 # AWS 設定
-dynamodb = boto3.resource('dynamodb', region_name='ap-east-1')
+dynamodb = boto3.resource('dynamodb', region_name='us-east-1')
 courses_table = dynamodb.Table('Courses')
 students_table = dynamodb.Table('Students')
 enrollments_table = dynamodb.Table('Enrollments')
