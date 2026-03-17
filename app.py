@@ -51,31 +51,30 @@ def login():
         user_id = request.form['user_id']
         password = request.form['password']
         
-        # Demo 登入（正式應用應該 check DynamoDB）
+        # Admin login
         if user_id == 'admin' and password == 'admin123':
             session['user_id'] = 'admin1'
             session['user_name'] = 'Administrator'
             session['role'] = 'admin'
             return redirect(url_for('admin_courses'))
+        
+        # Student login
         elif user_id.startswith('s'):
             # 檢查學生是否存在
             response = students_table.get_item(Key={'studentId': user_id})
             if 'Item' in response:
-                session['user_id'] = user_id
-                session['user_name'] = response['Item'].get('name', 'Student')
-                session['role'] = 'student'
-                return redirect(url_for('student_courses'))
+                student = response['Item']
+                # Check password
+                stored_password = student.get('password', user_id)  # 如果冇 password field，用 studentId 做 default
+                if password == stored_password:
+                    session['user_id'] = user_id
+                    session['user_name'] = student.get('name', f'Student {user_id}')
+                    session['role'] = 'student'
+                    return redirect(url_for('student_courses'))
+                else:
+                    return render_template('login.html', error='Invalid password')
             else:
-                # 自動註冊新學生（demo用）
-                students_table.put_item(Item={
-                    'studentId': user_id,
-                    'name': f'Student {user_id}',
-                    'enrolledCourses': []
-                })
-                session['user_id'] = user_id
-                session['user_name'] = f'Student {user_id}'
-                session['role'] = 'student'
-                return redirect(url_for('student_courses'))
+                return render_template('login.html', error='Student not found')
         
         return render_template('login.html', error='Invalid credentials')
     
