@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>Manage Students</h2>
+
+<table class="courses-table" style="width: 100%; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-top: 20px;">
+    <thead>
+        <tr>
+            <th style="background-color: #34495e; color: white; padding: 1rem; text-align: left;">Student ID</th>
+            <th style="background-color: #34495e; color: white; padding: 1rem; text-align: left;">Name</th>
+            <th style="background-color: #34495e; color: white; padding: 1rem; text-align: left;">Enrolled Courses</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for student in students %}
+        <tr>
+            <td style="padding: 1rem; border-bottom: 1px solid #ecf0f1;">{{ student.studentId }}</td>
+            <td style="padding: 1rem; border-bottom: 1px solid #ecf0f1;">{{ student.name }}</td>
+            <td style="padding: 1rem; border-bottom: 1px solid #ecf0f1;">{{ student.enrolled_course_names }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}
