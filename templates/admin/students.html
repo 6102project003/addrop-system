@@ -3,6 +3,33 @@
 {% block content %}
 <h2>Manage Students</h2>
 
+<!-- Add New Student Button -->
+<button onclick="toggleForm()" class="btn-primary" style="padding: 0.75rem 1.5rem; background-color: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 1rem; margin-bottom: 20px;">
+    Add New Student
+</button>
+
+<!-- Add Student Form (hidden by default) -->
+<div id="studentForm" style="display: none;" class="course-form">
+    <h3>Add New Student</h3>
+    <form method="POST" action="{{ url_for('admin_add_student') }}">
+        <div>
+            <label>Student ID:</label>
+            <input type="text" name="studentId" placeholder="e.g. s123456" required>
+        </div>
+        <div>
+            <label>Name:</label>
+            <input type="text" name="name" placeholder="Full name" required>
+        </div>
+        <div>
+            <label>Password:</label>
+            <input type="text" name="password" placeholder="Leave empty to use student ID number" value="">
+            <small style="color: #666; display: block; margin-top: 5px;">If empty, password will be set to student ID number (e.g. s123456 → 123456)</small>
+        </div>
+        <button type="submit" style="padding: 0.75rem 2rem; background-color: #27ae60; color: white; border: none; border-radius: 4px; cursor: pointer; margin-right: 1rem;">Save</button>
+        <button type="button" onclick="toggleForm()" style="padding: 0.75rem 2rem; background-color: #95a5a6; color: white; border: none; border-radius: 4px; cursor: pointer;">Cancel</button>
+    </form>
+</div>
+
 <!-- Upload Section - Only Students CSV -->
 <div class="upload-section" style="margin: 20px 0; padding: 20px; background: #f8f9fa; border-radius: 8px; border: 1px dashed #3498db;">
     <h3 style="margin-bottom: 15px; color: #2c3e50;">Bulk Upload Students</h3>
@@ -58,6 +85,11 @@
 </table>
 
 <script>
+function toggleForm() {
+    const form = document.getElementById('studentForm');
+    form.style.display = form.style.display === 'none' ? 'block' : 'none';
+}
+
 function downloadSampleStudents() {
     const content = "studentId,name,password\n" +
                     "s100001,John Smith,s100001\n" +
