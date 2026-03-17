@@ -534,6 +534,45 @@ def admin_delete_student(student_id):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+# ========== Student Change Password ==========
+@app.route('/student/change-password', methods=['GET', 'POST'])
+@login_required
+def student_change_password():
+    if session.get('role') != 'student':
+        return redirect(url_for('admin_courses'))
+    
+    if request.method == 'POST':
+        current_password = request.form['current_password']
+        new_password = request.form['new_password']
+        confirm_password = request.form['confirm_password']
+        
+        # 檢查新密碼同確認密碼係咪一樣
+        if new_password != confirm_password:
+            flash('New password and confirm password do not match', 'error')
+            return redirect(url_for('student_change_password'))
+        
+        # 拎學生資料
+        response = students_table.get_item(Key={'studentId': session['user_id']})
+        student = response.get('Item', {})
+        
+        # 檢查舊密碼
+        stored_password = student.get('password', session['user_id'].replace('s', ''))
+        if current_password != stored_password:
+            flash('Current password is incorrect', 'error')
+            return redirect(url_for('student_change_password'))
+        
+        # 更新密碼
+        students_table.update_item(
+            Key={'studentId': session['user_id']},
+            UpdateExpression='SET password = :p',
+            ExpressionAttributeValues={':p': new_password}
+        )
+        
+        flash('Password changed successfully', 'success')
+        return redirect(url_for('student_courses'))
+    
+    return render_template('student/change_password.html', user=session)
+
 # ========== 統計 API（俾前端 chart.js 用）=========
 @app.route('/api/stats/enrollment-by-dept')
 @login_required
