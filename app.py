@@ -425,16 +425,16 @@ def admin_upload_courses():
 def admin_upload_students():
     if 'file' not in request.files:
         flash('No file uploaded', 'error')
-        return redirect(url_for('admin_courses'))
+        return redirect(url_for('admin_students'))
     
     file = request.files['file']
     if file.filename == '':
         flash('No file selected', 'error')
-        return redirect(url_for('admin_courses'))
+        return redirect(url_for('admin_students'))
     
     if not file.filename.endswith('.csv'):
         flash('Please upload a CSV file', 'error')
-        return redirect(url_for('admin_courses'))
+        return redirect(url_for('admin_students'))
     
     # Read CSV file
     stream = io.StringIO(file.stream.read().decode("UTF8"), newline=None)
@@ -445,11 +445,11 @@ def admin_upload_students():
     
     for row in csv_reader:
         try:
-            # 預期 CSV 欄位：
-            # studentId,name
+            # 預期 CSV 欄位： studentId, name, password
             student = {
                 'studentId': row['studentId'],
                 'name': row['name'],
+                'password': row.get('password', row['studentId']),  # 如果有 password 就用，冇就用 studentId
                 'enrolledCourses': []
             }
             
@@ -462,7 +462,7 @@ def admin_upload_students():
             error_count += 1
     
     flash(f"Upload complete: {success_count} students added, {error_count} errors", 'success')
-    return redirect(url_for('admin_courses'))
+    return redirect(url_for('admin_students'))
 
 # ========== 統計 API（俾前端 chart.js 用）=========
 @app.route('/api/stats/enrollment-by-dept')
