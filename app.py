@@ -93,9 +93,28 @@ def student_courses():
     if session.get('role') != 'student':
         return redirect(url_for('admin_courses'))
     
-    # 拎全部課程
+    # 拎全部課程 (for dropdown)
     response = courses_table.scan()
-    courses = response.get('Items', [])
+    all_courses = response.get('Items', [])
+    
+    # 拎搜尋參數
+    search_term = request.args.get('search', '').lower()
+    selected_dept = request.args.get('department', '')
+    
+    # Filter courses
+    filtered_courses = []
+    for course in all_courses:
+        # Department filter
+        if selected_dept and course.get('department', '') != selected_dept:
+            continue
+        
+        # Search filter
+        if search_term:
+            if (search_term in course.get('courseId', '').lower() or 
+                search_term in course.get('name', '').lower()):
+                filtered_courses.append(course)
+        else:
+            filtered_courses.append(course)
     
     # 拎學生已選課程
     student_resp = students_table.get_item(Key={'studentId': session['user_id']})
@@ -103,8 +122,11 @@ def student_courses():
     enrolled = student.get('enrolledCourses', [])
     
     return render_template('student/courses.html', 
-                         courses=courses, 
+                         courses=filtered_courses,
+                         all_courses=all_courses,
                          enrolled=enrolled,
+                         search_term=search_term,
+                         selected_dept=selected_dept,
                          user=session)
 
 @app.route('/student/schedule')
