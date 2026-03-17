@@ -5,6 +5,9 @@ from flask import Flask, render_template, request, redirect, url_for, session, j
 from functools import wraps
 from datetime import datetime
 import uuid
+import csv
+import io
+from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
 app.secret_key = 'your-secret-key-here'  # 改做安全嘅 key
@@ -319,6 +322,106 @@ def admin_delete_course(course_id):
 @admin_required
 def admin_stats():
     return render_template('admin/stats.html', user=session)
+
+# ========== Admin Upload CSV Routes ==========
+@app.route('/admin/upload/courses', methods=['POST'])
+@login_required
+@admin_required
+def admin_upload_courses():
+    if 'file' not in request.files:
+        flash('No file uploaded', 'error')
+        return redirect(url_for('admin_courses'))
+    
+    file = request.files['file']
+    if file.filename == '':
+        flash('No file selected', 'error')
+        return redirect(url_for('admin_courses'))
+    
+    if not file.filename.endswith('.csv'):
+        flash('Please upload a CSV file', 'error')
+        return redirect(url_for('admin_courses'))
+    
+    # Read CSV file
+    stream = io.StringIO(file.stream.read().decode("UTF8"), newline=None)
+    csv_reader = csv.DictReader(stream)
+    
+    success_count = 0
+    error_count = 0
+    
+    for row in csv_reader:
+        try:
+            # 預期 CSV 欄位：
+            # courseId,name,credits,capacity,department,instructor,day,time
+            course = {
+                'courseId': row['courseId'],
+                'name': row['name'],
+                'credits': int(row.get('credits', 3)),
+                'capacity': int(row.get('capacity', 50)),
+                'enrolled': 0,
+                'department': row.get('department', ''),
+                'instructor': row.get('instructor', ''),
+                'schedule': {
+                    'day': row.get('day', 'Mon'),
+                    'time': row.get('time', '09:00-12:00')
+                },
+                'waitlist': []
+            }
+            
+            # 插入 DynamoDB
+            courses_table.put_item(Item=course)
+            success_count += 1
+            
+        except Exception as e:
+            print(f"Error inserting course: {e}")
+            error_count += 1
+    
+    flash(f"Upload complete: {success_count} courses added, {error_count} errors", 'success')
+    return redirect(url_for('admin_courses'))
+
+@app.route('/admin/upload/students', methods=['POST'])
+@login_required
+@admin_required
+def admin_upload_students():
+    if 'file' not in request.files:
+        flash('No file uploaded', 'error')
+        return redirect(url_for('admin_courses'))
+    
+    file = request.files['file']
+    if file.filename == '':
+        flash('No file selected', 'error')
+        return redirect(url_for('admin_courses'))
+    
+    if not file.filename.endswith('.csv'):
+        flash('Please upload a CSV file', 'error')
+        return redirect(url_for('admin_courses'))
+    
+    # Read CSV file
+    stream = io.StringIO(file.stream.read().decode("UTF8"), newline=None)
+    csv_reader = csv.DictReader(stream)
+    
+    success_count = 0
+    error_count = 0
+    
+    for row in csv_reader:
+        try:
+            # 預期 CSV 欄位：
+            # studentId,name
+            student = {
+                'studentId': row['studentId'],
+                'name': row['name'],
+                'enrolledCourses': []
+            }
+            
+            # 插入 DynamoDB
+            students_table.put_item(Item=student)
+            success_count += 1
+            
+        except Exception as e:
+            print(f"Error inserting student: {e}")
+            error_count += 1
+    
+    flash(f"Upload complete: {success_count} students added, {error_count} errors", 'success')
+    return redirect(url_for('admin_courses'))
 
 # ========== 統計 API（俾前端 chart.js 用）=========
 @app.route('/api/stats/enrollment-by-dept')
