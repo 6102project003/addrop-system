@@ -463,6 +463,47 @@ def admin_upload_students():
     flash(f"Upload complete: {success_count} students added, {error_count} errors", 'success')
     return redirect(url_for('admin_students'))
 
+# ========== Admin Student Management ==========
+@app.route('/admin/student/<student_id>/reset-password', methods=['POST'])
+@login_required
+@admin_required
+def admin_reset_student_password(student_id):
+    try:
+        # 新 password = 學生ID 入面嘅數字部分
+        # e.g. s123456 -> 123456
+        new_password = student_id.replace('s', '')
+        
+        students_table.update_item(
+            Key={'studentId': student_id},
+            UpdateExpression='SET password = :p',
+            ExpressionAttributeValues={':p': new_password}
+        )
+        
+        return jsonify({'message': f'Password reset to {new_password}'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/admin/student/<student_id>/delete', methods=['POST'])
+@login_required
+@admin_required
+def admin_delete_student(student_id):
+    try:
+        # 首先 delete 學生所有 enrollments
+        enrollments = enrollments_table.scan(
+            FilterExpression='studentId = :sid',
+            ExpressionAttributeValues={':sid': student_id}
+        ).get('Items', [])
+        
+        for enrollment in enrollments:
+            enrollments_table.delete_item(Key={'enrollmentId': enrollment['enrollmentId']})
+        
+        # 然後 delete 學生本身
+        students_table.delete_item(Key={'studentId': student_id})
+        
+        return jsonify({'message': 'Student deleted successfully'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 # ========== 統計 API（俾前端 chart.js 用）=========
 @app.route('/api/stats/enrollment-by-dept')
 @login_required
