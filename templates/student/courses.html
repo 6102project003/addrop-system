@@ -3,15 +3,56 @@
 {% block content %}
 <h2>Course Catalog</h2>
 
+<!-- Search and Filter Section -->
+<div style="background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+    <h3 style="margin-bottom: 15px;">Search Courses</h3>
+    
+    <form method="GET" action="{{ url_for('student_courses') }}" style="display: flex; gap: 10px; flex-wrap: wrap;">
+        <div style="flex: 2; min-width: 200px;">
+            <label style="display: block; margin-bottom: 5px; font-weight: 500;">Course ID or Name:</label>
+            <input type="text" name="search" value="{{ search_term }}" placeholder="e.g. COMP1234 or Cloud" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+        </div>
+        
+        <div style="flex: 1; min-width: 150px;">
+            <label style="display: block; margin-bottom: 5px; font-weight: 500;">Department:</label>
+            <select name="department" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                <option value="">All Departments</option>
+                {% set depts = [] %}
+                {% for course in all_courses %}
+                    {% if course.department and course.department not in depts %}
+                        {% set _ = depts.append(course.department) %}
+                        <option value="{{ course.department }}" {% if selected_dept == course.department %}selected{% endif %}>{{ course.department }}</option>
+                    {% endif %}
+                {% endfor %}
+            </select>
+        </div>
+        
+        <div style="flex: 1; min-width: 120px; display: flex; align-items: flex-end;">
+            <button type="submit" style="width: 100%; padding: 8px; background-color: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer;">Search</button>
+        </div>
+        
+        <div style="flex: 0; min-width: 100px; display: flex; align-items: flex-end;">
+            <a href="{{ url_for('student_courses') }}" style="display: block; width: 100%; padding: 8px; background-color: #95a5a6; color: white; text-decoration: none; border-radius: 4px; text-align: center;">Clear</a>
+        </div>
+    </form>
+    
+    {% if search_term or selected_dept %}
+    <div style="margin-top: 10px; padding: 10px; background-color: #e8f4fd; border-radius: 4px;">
+        <strong>Search results:</strong> {{ courses|length }} course(s) found
+    </div>
+    {% endif %}
+</div>
+
+<!-- Course Grid -->
 <div class="course-grid">
     {% for course in courses %}
     <div class="course-card">
         <h3>{{ course.courseId }} - {{ course.name }}</h3>
-        <p>Credits: {{ course.credits }}</p>
-        <p>Department: {{ course.department }}</p>
-        <p>Instructor: {{ course.instructor }}</p>
-        <p>Schedule: {{ course.schedule.day }} {{ course.schedule.time }}</p>
-        <p>Enrolled: {{ course.enrolled }} / {{ course.capacity }}</p>
+        <p><strong>Credits:</strong> {{ course.credits }}</p>
+        <p><strong>Department:</strong> {{ course.department }}</p>
+        <p><strong>Instructor:</strong> {{ course.instructor }}</p>
+        <p><strong>Schedule:</strong> {{ course.schedule.day }} {{ course.schedule.time }}</p>
+        <p><strong>Enrolled:</strong> {{ course.enrolled }} / {{ course.capacity }}</p>
         {% if user.user_id in course.waitlist %}
         <p class="waitlist">You are on waitlist (position {{ course.waitlist.index(user.user_id) + 1 }})</p>
         {% endif %}
@@ -22,6 +63,10 @@
             </button>
             <button onclick="dropCourse('{{ course.courseId }}')" class="drop-btn">Drop</button>
         </div>
+    </div>
+    {% else %}
+    <div style="grid-column: 1/-1; text-align: center; padding: 40px; background: white; border-radius: 8px;">
+        <p style="font-size: 1.2rem; color: #666;">No courses found matching your criteria.</p>
     </div>
     {% endfor %}
 </div>
@@ -41,6 +86,8 @@ function enrollCourse(courseId) {
 }
 
 function dropCourse(courseId) {
+    if (!confirm('Are you sure you want to drop this course?')) return;
+    
     fetch('/api/enroll', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
