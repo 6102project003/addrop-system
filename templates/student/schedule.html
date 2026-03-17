@@ -20,11 +20,19 @@
         {% for day in days %}
         <div class="course-cell">
             {% for course in courses %}
-                {% if course.schedule.day == day and time in course.schedule.time %}
-                <div class="schedule-course">
-                    <strong>{{ course.courseId }}</strong>
-                    <div>{{ course.name }}</div>
-                </div>
+                {% if course.schedule and course.schedule.day == day %}
+                    {% set start_end = course.schedule.time.split('-') %}
+                    {% set start_hour = start_end[0] %}
+                    {% set end_hour = start_end[1] %}
+                    
+                    {# 檢查 current time 係咪喺 course 時間範圍內 #}
+                    {% if time >= start_hour and time < end_hour %}
+                    <div class="schedule-course">
+                        <strong>{{ course.courseId }}</strong>
+                        <div>{{ course.name }}</div>
+                        <div style="font-size: 0.7rem; margin-top: 3px;">{{ course.schedule.time }}</div>
+                    </div>
+                    {% endif %}
                 {% endif %}
             {% endfor %}
         </div>
@@ -32,4 +40,16 @@
     </div>
     {% endfor %}
 </div>
+
+<style>
+.schedule-course {
+    background: linear-gradient(135deg, #3498db, #2980b9);
+    color: white;
+    padding: 0.5rem;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    height: 100%;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+</style>
 {% endblock %}
