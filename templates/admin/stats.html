@@ -16,25 +16,53 @@
 </div>
 
 <div class="stats-table" id="courseDetails">
-    <h3>Course Details</h3>
-    <table>
+    <h3>All Courses Details</h3>
+    <p style="color: #666; margin-bottom: 15px;">Total courses: {{ courses|length }}</p>
+    
+    <!-- Search box for courses -->
+    <div style="margin-bottom: 20px;">
+        <input type="text" id="courseSearch" placeholder="Search by Course ID or Name..." style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+    </div>
+    
+    <table id="coursesTable">
         <thead>
             <tr>
-                <th>Course ID</th>
-                <th>Name</th>
-                <th>Enrolled</th>
-                <th>Capacity</th>
-                <th>Fill Rate</th>
+                <th style="background-color: #34495e; color: white; padding: 0.75rem; text-align: left;">Course ID</th>
+                <th style="background-color: #34495e; color: white; padding: 0.75rem; text-align: left;">Name</th>
+                <th style="background-color: #34495e; color: white; padding: 0.75rem; text-align: left;">Dept</th>
+                <th style="background-color: #34495e; color: white; padding: 0.75rem; text-align: left;">Instructor</th>
+                <th style="background-color: #34495e; color: white; padding: 0.75rem; text-align: left;">Schedule</th>
+                <th style="background-color: #34495e; color: white; padding: 0.75rem; text-align: left;">Enrolled</th>
+                <th style="background-color: #34495e; color: white; padding: 0.75rem; text-align: left;">Capacity</th>
+                <th style="background-color: #34495e; color: white; padding: 0.75rem; text-align: left;">Fill Rate</th>
             </tr>
         </thead>
-        <tbody id="courseTableBody">
+        <tbody id="coursesTableBody">
+            {% for course in courses %}
+            <tr class="course-row">
+                <td style="padding: 0.75rem; border-bottom: 1px solid #ecf0f1;">{{ course.courseId }}</td>
+                <td style="padding: 0.75rem; border-bottom: 1px solid #ecf0f1;">{{ course.name }}</td>
+                <td style="padding: 0.75rem; border-bottom: 1px solid #ecf0f1;">{{ course.department }}</td>
+                <td style="padding: 0.75rem; border-bottom: 1px solid #ecf0f1;">{{ course.instructor }}</td>
+                <td style="padding: 0.75rem; border-bottom: 1px solid #ecf0f1;">{{ course.schedule.day }} {{ course.schedule.time }}</td>
+                <td style="padding: 0.75rem; border-bottom: 1px solid #ecf0f1;">{{ course.enrolled }}</td>
+                <td style="padding: 0.75rem; border-bottom: 1px solid #ecf0f1;">{{ course.capacity }}</td>
+                <td style="padding: 0.75rem; border-bottom: 1px solid #ecf0f1;">
+                    {% if course.capacity > 0 %}
+                        {{ (course.enrolled / course.capacity * 100)|round|int }}%
+                    {% else %}
+                        0%
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
         </tbody>
     </table>
 </div>
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // 載入部門統計
+    // Load department statistics
     fetch('/api/stats/enrollment-by-dept')
         .then(res => res.json())
         .then(data => {
@@ -50,14 +78,18 @@ document.addEventListener('DOMContentLoaded', function() {
                             'rgba(255, 206, 86, 0.6)',
                             'rgba(75, 192, 192, 0.6)',
                             'rgba(153, 102, 255, 0.6)',
-                            'rgba(255, 159, 64, 0.6)'
+                            'rgba(255, 159, 64, 0.6)',
+                            'rgba(201, 203, 207, 0.6)',
+                            'rgba(255, 99, 132, 0.6)',
+                            'rgba(54, 162, 235, 0.6)',
+                            'rgba(255, 206, 86, 0.6)'
                         ]
                     }]
                 }
             });
         });
     
-    // 載入熱門課程
+    // Load popular courses (top 10)
     fetch('/api/stats/popular-courses')
         .then(res => res.json())
         .then(data => {
@@ -69,33 +101,139 @@ document.addEventListener('DOMContentLoaded', function() {
                         {
                             label: 'Enrolled',
                             data: data.map(c => c.enrolled),
-                            backgroundColor: 'rgba(54, 162, 235, 0.6)'
+                            backgroundColor: 'rgba(54, 162, 235, 0.6)',
+                            borderColor: 'rgba(54, 162, 235, 1)',
+                            borderWidth: 1
                         },
                         {
                             label: 'Capacity',
                             data: data.map(c => c.capacity),
-                            backgroundColor: 'rgba(255, 99, 132, 0.6)'
+                            backgroundColor: 'rgba(255, 99, 132, 0.6)',
+                            borderColor: 'rgba(255, 99, 132, 1)',
+                            borderWidth: 1
                         }
                     ]
                 },
                 options: {
-                    scales: { y: { beginAtZero: true } }
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    },
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            position: 'top'
+                        },
+                        title: {
+                            display: true,
+                            text: 'Top 10 Most Popular Courses'
+                        }
+                    }
                 }
             });
-            
-            // 顯示課程詳細表
-            const tbody = document.getElementById('courseTableBody');
-            data.forEach(course => {
-                const row = tbody.insertRow();
-                row.innerHTML = `
-                    <td>${course.courseId}</td>
-                    <td>${course.name}</td>
-                    <td>${course.enrolled}</td>
-                    <td>${course.capacity}</td>
-                    <td>${Math.round(course.enrolled / course.capacity * 100)}%</td>
-                `;
-            });
         });
+    
+    // Search functionality
+    const searchInput = document.getElementById('courseSearch');
+    const rows = document.querySelectorAll('.course-row');
+    
+    searchInput.addEventListener('keyup', function() {
+        const searchTerm = this.value.toLowerCase();
+        
+        rows.forEach(row => {
+            const courseId = row.cells[0].textContent.toLowerCase();
+            const courseName = row.cells[1].textContent.toLowerCase();
+            
+            if (courseId.includes(searchTerm) || courseName.includes(searchTerm)) {
+                row.style.display = '';
+            } else {
+                row.style.display = 'none';
+            }
+        });
+    });
 });
 </script>
+
+<style>
+.stats-table {
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    margin-top: 30px;
+    overflow-x: auto;
+}
+
+.stats-table h3 {
+    margin-bottom: 15px;
+    color: #2c3e50;
+}
+
+.stats-table table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 1000px;
+}
+
+.stats-table th {
+    background-color: #34495e;
+    color: white;
+    padding: 0.75rem;
+    text-align: left;
+    font-weight: 500;
+    position: sticky;
+    top: 0;
+}
+
+.stats-table td {
+    padding: 0.75rem;
+    border-bottom: 1px solid #ecf0f1;
+}
+
+.stats-table tr:hover {
+    background-color: #f8f9fa;
+}
+
+#courseSearch {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 1rem;
+    margin-bottom: 20px;
+}
+
+#courseSearch:focus {
+    outline: none;
+    border-color: #3498db;
+    box-shadow: 0 0 0 2px rgba(52,152,219,0.2);
+}
+
+.chart-row {
+    display: grid;
+    grid-template-columns: 1fr 2fr;
+    gap: 20px;
+    margin-bottom: 30px;
+}
+
+@media (max-width: 768px) {
+    .chart-row {
+        grid-template-columns: 1fr;
+    }
+}
+
+.chart-box {
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.chart-box h3 {
+    margin-bottom: 15px;
+    text-align: center;
+    color: #2c3e50;
+}
+</style>
 {% endblock %}
