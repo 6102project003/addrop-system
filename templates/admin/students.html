@@ -29,39 +29,6 @@
     </div>
 </div>
 
-<!-- Bulk Delete Section -->
-<div style="margin: 20px 0; padding: 20px; background: #fff3f3; border-radius: 8px; border: 1px solid #e74c3c;">
-    <h3 style="margin-bottom: 15px; color: #c0392b;">Bulk Delete Students</h3>
-    
-    <form method="POST" action="{{ url_for('admin_bulk_delete_students') }}" onsubmit="return confirmBulkDelete()">
-        <div style="display: flex; gap: 10px; align-items: flex-end;">
-            <div style="flex: 1;">
-                <label style="display: block; margin-bottom: 5px; font-weight: 500;">Student IDs (one per line):</label>
-                <textarea name="student_ids" rows="5" placeholder="s100001&#10;s100002&#10;s100003" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-family: monospace;" required></textarea>
-            </div>
-            <div>
-                <label style="display: block; margin-bottom: 5px; font-weight: 500;">&nbsp;</label>
-                <button type="submit" style="padding: 10px 20px; background-color: #e74c3c; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">Delete Selected Students</button>
-            </div>
-        </div>
-        <p style="font-size: 0.9rem; color: #666; margin-top: 10px;">
-            <strong>Warning:</strong> This will permanently delete the students and all their enrollment records.
-        </p>
-    </form>
-    
-    <!-- Upload CSV for Bulk Delete -->
-    <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #ddd;">
-        <p style="margin-bottom: 10px;"><strong>Or upload a CSV file with student IDs:</strong></p>
-        <form method="POST" action="{{ url_for('admin_bulk_delete_students_csv') }}" enctype="multipart/form-data">
-            <div style="display: flex; gap: 10px; align-items: center;">
-                <input type="file" name="file" accept=".csv" required style="padding: 8px; border: 1px solid #ddd; border-radius: 4px; background: white; flex: 1;">
-                <button type="submit" style="padding: 8px 16px; background-color: #e74c3c; color: white; border: none; border-radius: 4px; cursor: pointer;">Upload and Delete</button>
-            </div>
-            <p style="font-size: 0.9rem; color: #666; margin-top: 5px;">CSV should have a column named "studentId"</p>
-        </form>
-    </div>
-</div>
-
 <!-- Add New Student Button -->
 <button onclick="toggleForm()" class="btn-primary" style="padding: 0.75rem 1.5rem; background-color: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 1rem; margin-bottom: 20px;">
     Add New Student
@@ -89,31 +56,51 @@
     </form>
 </div>
 
-<!-- Students Table (without enrolled courses) -->
-<table class="courses-table" style="width: 100%; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-top: 20px;">
-    <thead>
-        <tr>
-            <th style="background-color: #34495e; color: white; padding: 1rem; text-align: left;">Student ID</th>
-            <th style="background-color: #34495e; color: white; padding: 1rem; text-align: left;">Name</th>
-            <th style="background-color: #34495e; color: white; padding: 1rem; text-align: left;">Password</th>
-            <th style="background-color: #34495e; color: white; padding: 1rem; text-align: left;">Actions</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for student in students %}
-        <tr>
-            <td style="padding: 1rem; border-bottom: 1px solid #ecf0f1;">{{ student.studentId }}</td>
-            <td style="padding: 1rem; border-bottom: 1px solid #ecf0f1;">{{ student.name }}</td>
-            <td style="padding: 1rem; border-bottom: 1px solid #ecf0f1;">••••••••</td>
-            <td style="padding: 1rem; border-bottom: 1px solid #ecf0f1;">
-                <button onclick="resetPassword('{{ student.studentId }}')" style="padding: 0.3rem 1rem; background-color: #f39c12; color: white; border: none; border-radius: 4px; cursor: pointer; margin-right: 0.3rem;">Reset Password</button>
-                <button onclick="deleteStudent('{{ student.studentId }}')" 
-                   style="padding: 0.3rem 1rem; background-color: #e74c3c; color: white; border: none; border-radius: 4px; cursor: pointer;">Delete</button>
-            </td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
+<!-- Bulk Delete Section with Checkboxes -->
+<div style="margin: 20px 0; display: flex; justify-content: space-between; align-items: center;">
+    <div>
+        <button onclick="selectAll()" style="padding: 8px 16px; background-color: #34495e; color: white; border: none; border-radius: 4px; cursor: pointer; margin-right: 10px;">Select All</button>
+        <button onclick="deselectAll()" style="padding: 8px 16px; background-color: #95a5a6; color: white; border: none; border-radius: 4px; cursor: pointer; margin-right: 10px;">Deselect All</button>
+        <button onclick="deleteSelected()" style="padding: 8px 16px; background-color: #e74c3c; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">Delete Selected</button>
+    </div>
+    <div>
+        <span id="selectedCount" style="font-weight: bold;">0</span> students selected
+    </div>
+</div>
+
+<!-- Students Table with Checkboxes (without enrolled courses) -->
+<form id="deleteForm" method="POST" action="{{ url_for('admin_bulk_delete_students') }}">
+    <table class="courses-table" style="width: 100%; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+        <thead>
+            <tr>
+                <th style="background-color: #34495e; color: white; padding: 1rem; text-align: left; width: 50px;">
+                    <input type="checkbox" onclick="toggleAll(this)" style="transform: scale(1.2);">
+                </th>
+                <th style="background-color: #34495e; color: white; padding: 1rem; text-align: left;">Student ID</th>
+                <th style="background-color: #34495e; color: white; padding: 1rem; text-align: left;">Name</th>
+                <th style="background-color: #34495e; color: white; padding: 1rem; text-align: left;">Password</th>
+                <th style="background-color: #34495e; color: white; padding: 1rem; text-align: left;">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for student in students %}
+            <tr>
+                <td style="padding: 1rem; border-bottom: 1px solid #ecf0f1; text-align: center;">
+                    <input type="checkbox" name="student_ids" value="{{ student.studentId }}" onchange="updateCount()" style="transform: scale(1.2);">
+                </td>
+                <td style="padding: 1rem; border-bottom: 1px solid #ecf0f1;">{{ student.studentId }}</td>
+                <td style="padding: 1rem; border-bottom: 1px solid #ecf0f1;">{{ student.name }}</td>
+                <td style="padding: 1rem; border-bottom: 1px solid #ecf0f1;">••••••••</td>
+                <td style="padding: 1rem; border-bottom: 1px solid #ecf0f1;">
+                    <button type="button" onclick="resetPassword('{{ student.studentId }}')" style="padding: 0.3rem 1rem; background-color: #f39c12; color: white; border: none; border-radius: 4px; cursor: pointer; margin-right: 0.3rem;">Reset Password</button>
+                    <button type="button" onclick="deleteSingle('{{ student.studentId }}')" 
+                       style="padding: 0.3rem 1rem; background-color: #e74c3c; color: white; border: none; border-radius: 4px; cursor: pointer;">Delete</button>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</form>
 
 <script>
 function toggleForm() {
@@ -138,8 +125,77 @@ function downloadSampleStudents() {
     window.URL.revokeObjectURL(url);
 }
 
-function confirmBulkDelete() {
-    return confirm('Are you sure you want to delete all these students? This action cannot be undone.');
+// Checkbox functions
+function toggleAll(source) {
+    const checkboxes = document.getElementsByName('student_ids');
+    for (let i = 0; i < checkboxes.length; i++) {
+        checkboxes[i].checked = source.checked;
+    }
+    updateCount();
+}
+
+function selectAll() {
+    const checkboxes = document.getElementsByName('student_ids');
+    for (let i = 0; i < checkboxes.length; i++) {
+        checkboxes[i].checked = true;
+    }
+    document.querySelector('thead input[type="checkbox"]').checked = true;
+    updateCount();
+}
+
+function deselectAll() {
+    const checkboxes = document.getElementsByName('student_ids');
+    for (let i = 0; i < checkboxes.length; i++) {
+        checkboxes[i].checked = false;
+    }
+    document.querySelector('thead input[type="checkbox"]').checked = false;
+    updateCount();
+}
+
+function updateCount() {
+    const checkboxes = document.getElementsByName('student_ids');
+    let count = 0;
+    for (let i = 0; i < checkboxes.length; i++) {
+        if (checkboxes[i].checked) count++;
+    }
+    document.getElementById('selectedCount').innerText = count;
+}
+
+function deleteSelected() {
+    const checkboxes = document.getElementsByName('student_ids');
+    let selected = [];
+    for (let i = 0; i < checkboxes.length; i++) {
+        if (checkboxes[i].checked) {
+            selected.push(checkboxes[i].value);
+        }
+    }
+    
+    if (selected.length === 0) {
+        alert('Please select at least one student to delete.');
+        return;
+    }
+    
+    if (confirm('Are you sure you want to delete ' + selected.length + ' selected student(s)? This will also remove all their enrollments.')) {
+        document.getElementById('deleteForm').submit();
+    }
+}
+
+function deleteSingle(studentId) {
+    if (confirm('Are you sure you want to delete student ' + studentId + '? This will also remove all their enrollments.')) {
+        // Create a form and submit
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = "{{ url_for('admin_bulk_delete_students') }}";
+        
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'student_ids';
+        input.value = studentId;
+        
+        form.appendChild(input);
+        document.body.appendChild(form);
+        form.submit();
+    }
 }
 
 function resetPassword(studentId) {
@@ -155,23 +211,6 @@ function resetPassword(studentId) {
         })
         .catch(error => {
             alert('Error resetting password');
-        });
-    }
-}
-
-function deleteStudent(studentId) {
-    if (confirm('Are you sure you want to delete student ' + studentId + '? This will also remove all their enrollments.')) {
-        fetch('/admin/student/' + studentId + '/delete', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'}
-        })
-        .then(response => response.json())
-        .then(data => {
-            alert(data.message || 'Student deleted successfully');
-            location.reload();
-        })
-        .catch(error => {
-            alert('Error deleting student');
         });
     }
 }
