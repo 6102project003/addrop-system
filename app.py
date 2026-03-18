@@ -490,9 +490,12 @@ def admin_add_student():
     name = request.form['name']
     password = request.form.get('password', '')
     
-    # 如果 password 留空，用 student ID 入面嘅數字
+    # 如果冇俾 password，用 studentId 數字
     if not password:
         password = student_id.replace('s', '')
+    
+    # Hash 密碼
+    password_hash = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
     
     # 檢查學生是否已經存在
     response = students_table.get_item(Key={'studentId': student_id})
@@ -500,11 +503,11 @@ def admin_add_student():
         flash(f'Student {student_id} already exists', 'error')
         return redirect(url_for('admin_students'))
     
-    # 新增學生
+    # 新增學生 (用 password_hash 代替 password)
     student = {
         'studentId': student_id,
         'name': name,
-        'password': password,
+        'password_hash': password_hash,
         'enrolledCourses': []
     }
     
