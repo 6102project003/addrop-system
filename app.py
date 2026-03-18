@@ -526,13 +526,15 @@ def admin_add_student():
 def admin_reset_student_password(student_id):
     try:
         # 新 password = 學生ID 入面嘅數字部分
-        # e.g. s123456 -> 123456
         new_password = student_id.replace('s', '')
+        
+        # Hash 新密碼
+        password_hash = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
         
         students_table.update_item(
             Key={'studentId': student_id},
-            UpdateExpression='SET password = :p',
-            ExpressionAttributeValues={':p': new_password}
+            UpdateExpression='SET password_hash = :p',
+            ExpressionAttributeValues={':p': password_hash}
         )
         
         return jsonify({'message': f'Password reset to {new_password}'})
