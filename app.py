@@ -593,34 +593,78 @@ def admin_upload_courses():
     
     success_count = 0
     error_count = 0
+    updated_count = 0
+    skipped_count = 0
     
     for row in csv_reader:
         try:
-            course = {
-                'courseId': row['courseId'],
-                'name': row['name'],
-                'credits': int(row.get('credits', 3)),
-                'capacity': int(row.get('capacity', 50)),
-                'enrolled': 0,
-                'department': row.get('department', ''),
-                'instructor': row.get('instructor', ''),
-                'location': row.get('location', 'TBA'),  # 加呢行
-                'schedule': {
-                    'day': row.get('day', 'Mon'),
-                    'time': row.get('time', '09:00-12:00')
-                },
-                'waitlist': []
-            }
+            course_id = row['courseId']
             
-            courses_table.put_item(Item=course)
-            success_count += 1
+            # Check if course already exists
+            existing = courses_table.get_item(Key={'courseId': course_id}).get('Item')
+            
+            if existing:
+                # Course exists - update only specific fields, preserve enrolled
+                update_expr = 'SET #n = :n, credits = :credits, capacity = :capacity, '
+                update_expr += 'department = :dept, instructor = :instructor, '
+                update_expr += '#loc = :loc, schedule = :schedule'
+                
+                expr_attrs = {
+                    ':n': row['name'],
+                    ':credits': int(row.get('credits', 3)),
+                    ':capacity': int(row.get('capacity', 50)),
+                    ':dept': row.get('department', ''),
+                    ':instructor': row.get('instructor', ''),
+                    ':loc': row.get('location', 'TBA'),
+                    ':schedule': {
+                        'day': row.get('day', 'Mon'),
+                        'time': row.get('time', '09:00-12:00')
+                    }
+                }
+                
+                expr_names = {
+                    '#n': 'name',
+                    '#loc': 'location'
+                }
+                
+                courses_table.update_item(
+                    Key={'courseId': course_id},
+                    UpdateExpression=update_expr,
+                    ExpressionAttributeNames=expr_names,
+                    ExpressionAttributeValues=expr_attrs
+                )
+                updated_count += 1
+                
+            else:
+                # New course - create with enrolled = 0
+                course = {
+                    'courseId': course_id,
+                    'name': row['name'],
+                    'credits': int(row.get('credits', 3)),
+                    'capacity': int(row.get('capacity', 50)),
+                    'enrolled': 0,
+                    'department': row.get('department', ''),
+                    'instructor': row.get('instructor', ''),
+                    'location': row.get('location', 'TBA'),
+                    'schedule': {
+                        'day': row.get('day', 'Mon'),
+                        'time': row.get('time', '09:00-12:00')
+                    },
+                    'waitlist': []
+                }
+                courses_table.put_item(Item=course)
+                success_count += 1
             
         except Exception as e:
-            print(f"Error inserting course: {e}")
+            print(f"Error processing course: {e}")
             error_count += 1
     
-    logging.info(f"Admin uploaded {success_count} courses, {error_count} errors")
-    flash(f"Upload complete: {success_count} courses added, {error_count} errors", 'success')
+    msg = f"Upload complete: {success_count} new courses added, {updated_count} courses updated"
+    if error_count:
+        msg += f", {error_count} errors"
+    
+    logging.info(msg)
+    flash(msg, 'success')
     return redirect(url_for('admin_courses'))
 
 @app.route('/admin/students/bulk-delete', methods=['POST'])
