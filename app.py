@@ -419,6 +419,7 @@ def admin_add_course():
         'enrolled': 0,
         'department': request.form.get('department', ''),
         'instructor': request.form.get('instructor', ''),
+        'location': request.form.get('location', 'TBA'),  # 加呢行
         'schedule': {
             'day': request.form.get('schedule_day', 'Mon'),
             'time': request.form.get('schedule_time', '09:00-12:00')
