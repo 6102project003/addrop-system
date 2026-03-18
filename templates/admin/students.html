@@ -56,6 +56,12 @@
     </form>
 </div>
 
+<!-- Search Box -->
+<div style="margin: 20px 0;">
+    <input type="text" id="studentSearch" placeholder="Search by Student ID or Name..." 
+           style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 1rem;">
+</div>
+
 <!-- Bulk Delete Section with Checkboxes -->
 <div style="margin: 20px 0; display: flex; justify-content: space-between; align-items: center;">
     <div>
@@ -82,9 +88,9 @@
                 <th style="background-color: #34495e; color: white; padding: 1rem; text-align: left;">Actions</th>
             </tr>
         </thead>
-        <tbody>
+        <tbody id="studentsTableBody">
             {% for student in students %}
-            <tr>
+            <tr class="student-row">
                 <td style="padding: 1rem; border-bottom: 1px solid #ecf0f1; text-align: center;">
                     <input type="checkbox" name="student_ids" value="{{ student.studentId }}" onchange="updateCount()" style="transform: scale(1.2);">
                 </td>
@@ -145,6 +151,26 @@ function downloadSampleStudents() {
     a.click();
     window.URL.revokeObjectURL(url);
 }
+
+// Search functionality
+const searchInput = document.getElementById('studentSearch');
+const rows = document.querySelectorAll('.student-row');
+
+searchInput.addEventListener('keyup', function() {
+    const searchTerm = this.value.toLowerCase();
+    
+    rows.forEach(row => {
+        const cells = row.getElementsByTagName('td');
+        const studentId = cells[1].textContent.toLowerCase();
+        const studentName = cells[2].textContent.toLowerCase();
+        
+        if (studentId.includes(searchTerm) || studentName.includes(searchTerm)) {
+            row.style.display = '';
+        } else {
+            row.style.display = 'none';
+        }
+    });
+});
 
 // Checkbox functions
 function toggleAll(source) {
