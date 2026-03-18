@@ -360,7 +360,11 @@ def admin_delete_course(course_id):
 @login_required
 @admin_required
 def admin_stats():
-    return render_template('admin/stats.html', user=session)
+    # 拎全部課程
+    response = courses_table.scan()
+    courses = response.get('Items', [])
+    
+    return render_template('admin/stats.html', user=session, courses=courses)
 
 @app.route('/admin/students')
 @login_required
