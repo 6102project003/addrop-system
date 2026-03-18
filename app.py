@@ -5,6 +5,7 @@ from flask import Flask, render_template, request, redirect, url_for, session, j
 from functools import wraps
 from datetime import datetime
 import uuid
+import bcrypt
 import csv
 import io
 from werkzeug.utils import secure_filename
