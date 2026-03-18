@@ -760,6 +760,42 @@ def admin_stats():
     
     return render_template('admin/stats.html', user=session, courses=courses)
 
+@app.route('/api/student/<student_id>/courses', methods=['GET'])
+@login_required
+@admin_required
+def api_student_courses(student_id):
+    try:
+        # 拎學生資料
+        student_resp = students_table.get_item(Key={'studentId': student_id})
+        student = student_resp.get('Item', {})
+        
+        if not student:
+            return jsonify({'error': 'Student not found'}), 404
+        
+        # 拎已選課程 IDs
+        enrolled_ids = student.get('enrolledCourses', [])
+        
+        # 拎課程詳細資料
+        courses = []
+        for cid in enrolled_ids:
+            course = courses_table.get_item(Key={'courseId': cid}).get('Item', {})
+            if course:
+                courses.append({
+                    'courseId': course.get('courseId'),
+                    'name': course.get('name'),
+                    'schedule': course.get('schedule'),
+                    'location': course.get('location', 'TBA')
+                })
+        
+        return jsonify({
+            'studentId': student_id,
+            'name': student.get('name', ''),
+            'courses': courses
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 # ========== Admin Change Password ==========
 @app.route('/admin/change-password', methods=['GET', 'POST'])
 @login_required
