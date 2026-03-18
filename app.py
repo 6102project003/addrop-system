@@ -461,22 +461,27 @@ def admin_upload_students():
     error_count = 0
     
     for row in csv_reader:
-        try:
-            # 預期 CSV 欄位： studentId, name, password
-            student = {
-                'studentId': row['studentId'],
-                'name': row['name'],
-                'password': row.get('password', row['studentId']),  # 如果有 password 就用，冇就用 studentId
-                'enrolledCourses': []
-            }
-            
-            # 插入 DynamoDB
-            students_table.put_item(Item=student)
-            success_count += 1
-            
-        except Exception as e:
-            print(f"Error inserting student: {e}")
-            error_count += 1
+    try:
+        student_id = row['studentId']
+        name = row['name']
+        password = row.get('password', student_id.replace('s', ''))
+        
+        # Hash 密碼
+        password_hash = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+        
+        student = {
+            'studentId': student_id,
+            'name': name,
+            'password_hash': password_hash,
+            'enrolledCourses': []
+        }
+        
+        students_table.put_item(Item=student)
+        success_count += 1
+        
+    except Exception as e:
+        print(f"Error inserting student: {e}")
+        error_count += 1
     
     flash(f"Upload complete: {success_count} students added, {error_count} errors", 'success')
     return redirect(url_for('admin_students'))
