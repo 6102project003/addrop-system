@@ -50,6 +50,7 @@
             <p><strong>Credits:</strong> {{ course.credits }}</p>
             <p><strong>Department:</strong> {{ course.department }}</p>
             <p><strong>Instructor:</strong> {{ course.instructor }}</p>
+            <p><strong>Location:</strong> {{ course.location or 'TBA' }}</p>
             <p><strong>Schedule:</strong> {{ course.schedule.day }} {{ course.schedule.time }}</p>
             <p><strong>Enrolled:</strong> {{ course.enrolled }} / {{ course.capacity }}</p>
             {% if user.user_id in course.waitlist %}
