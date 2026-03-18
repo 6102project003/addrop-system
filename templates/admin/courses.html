@@ -136,7 +136,7 @@
                 <td style="padding: 1rem; border-bottom: 1px solid #ecf0f1;">{{ course.enrolled }}</td>
                 <td style="padding: 1rem; border-bottom: 1px solid #ecf0f1;">
                     <span id="capacity-{{ course.courseId }}">{{ course.capacity }}</span>
-                    <button onclick="editCapacity('{{ course.courseId }}')" style="margin-left: 5px; padding: 2px 8px; background-color: #f39c12; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.8rem;">Edit</button>
+                    <button type="button" onclick="editCapacity('{{ course.courseId }}')" style="margin-left: 5px; padding: 2px 8px; background-color: #f39c12; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.8rem;">Edit</button>
                 </td>
                 <td style="padding: 1rem; border-bottom: 1px solid #ecf0f1;">
                     <div style="display: flex; flex-direction: column; gap: 8px;">
@@ -320,9 +320,12 @@ function deleteSingle(courseId) {
     }
 }
 
-// Edit Capacity functions - FIXED VERSION
+// Edit Capacity functions - FIXED VERSION with preventDefault
 function editCapacity(courseId) {
-    // Get the row by ID instead of using event.target
+    // Prevent any default action
+    event.preventDefault();
+    
+    // Get the row by ID
     const row = document.getElementById('course-row-' + courseId);
     if (!row) {
         alert('Error: Course row not found');
@@ -345,6 +348,9 @@ function editCapacity(courseId) {
     
     // Show modal
     document.getElementById('editModal').style.display = 'block';
+    
+    // Return false to prevent any form submission
+    return false;
 }
 
 function closeModal() {
