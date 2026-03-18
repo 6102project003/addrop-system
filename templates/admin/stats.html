@@ -29,7 +29,6 @@
             <tr>
                 <th style="background-color: #34495e; color: white; padding: 0.75rem; text-align: left;">Course ID</th>
                 <th style="background-color: #34495e; color: white; padding: 0.75rem; text-align: left;">Name</th>
-                <th style="background-color: #34495e; color: white; padding: 0.75rem; text-align: left;">Dept</th>
                 <th style="background-color: #34495e; color: white; padding: 0.75rem; text-align: left;">Instructor</th>
                 <th style="background-color: #34495e; color: white; padding: 0.75rem; text-align: left;">Location</th>
                 <th style="background-color: #34495e; color: white; padding: 0.75rem; text-align: left;">Schedule</th>
@@ -43,7 +42,6 @@
             <tr class="course-row">
                 <td style="padding: 0.75rem; border-bottom: 1px solid #ecf0f1;">{{ course.courseId }}</td>
                 <td style="padding: 0.75rem; border-bottom: 1px solid #ecf0f1;">{{ course.name }}</td>
-                <td style="padding: 0.75rem; border-bottom: 1px solid #ecf0f1;">{{ course.department }}</td>
                 <td style="padding: 0.75rem; border-bottom: 1px solid #ecf0f1;">{{ course.instructor or 'TBA' }}</td>
                 <td style="padding: 0.75rem; border-bottom: 1px solid #ecf0f1;">{{ course.location or 'TBA' }}</td>
                 <td style="padding: 0.75rem; border-bottom: 1px solid #ecf0f1;">{{ course.schedule.day }} {{ course.schedule.time }}</td>
@@ -175,7 +173,7 @@ document.addEventListener('DOMContentLoaded', function() {
 .stats-table table {
     width: 100%;
     border-collapse: collapse;
-    min-width: 1200px;
+    min-width: 1000px;
 }
 
 .stats-table th {
