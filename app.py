@@ -357,6 +357,27 @@ def enroll_course(student_id, course_id):
     return jsonify({'message': 'Enrollment successful'})
 
 def drop_course(student_id, course_id):
+    # 1. 檢查學生是否存在
+    student_resp = students_table.get_item(Key={'studentId': student_id})
+    student = student_resp.get('Item', {})
+    if not student:
+        return jsonify({'error': 'Student not found'}), 404
+    
+    # 2. 檢查學生係咪真係有報讀呢科
+    enrolled = student.get('enrolledCourses', [])
+    if course_id not in enrolled:
+        return jsonify({'error': 'You are not enrolled in this course'}), 400
+    
+    # 3. 檢查課程是否存在
+    course_resp = courses_table.get_item(Key={'courseId': course_id})
+    course = course_resp.get('Item', {})
+    if not course:
+        return jsonify({'error': 'Course not found'}), 404
+    
+    # 4. 檢查課程人數會唔會變負數
+    if course.get('enrolled', 0) <= 0:
+        return jsonify({'error': 'Course enrollment count error'}), 500
+    
     # 刪除 enrollment record
     enrollments = enrollments_table.scan(
         FilterExpression='studentId = :sid AND courseId = :cid',
@@ -366,25 +387,23 @@ def drop_course(student_id, course_id):
     for e in enrollments:
         enrollments_table.delete_item(Key={'enrollmentId': e['enrollmentId']})
     
-    # 減少課程人數
+    # 減少課程人數 (atomic operation)
     courses_table.update_item(
         Key={'courseId': course_id},
         UpdateExpression='SET enrolled = enrolled - :dec',
-        ExpressionAttributeValues={':dec': 1}
+        ConditionExpression='enrolled > :zero',  # 確保唔會變負數
+        ExpressionAttributeValues={':dec': 1, ':zero': 0}
     )
     
     # 從學生記錄移除
-    student = students_table.get_item(Key={'studentId': student_id}).get('Item', {})
-    enrolled = student.get('enrolledCourses', [])
-    if course_id in enrolled:
-        enrolled.remove(course_id)
-        students_table.update_item(
-            Key={'studentId': student_id},
-            UpdateExpression='SET enrolledCourses = :e',
-            ExpressionAttributeValues={':e': enrolled}
-        )
+    enrolled.remove(course_id)
+    students_table.update_item(
+        Key={'studentId': student_id},
+        UpdateExpression='SET enrolledCourses = :e',
+        ExpressionAttributeValues={':e': enrolled}
+    )
     
-    # 檢查候補
+    # 檢查候補 (optional)
     course = courses_table.get_item(Key={'courseId': course_id}).get('Item', {})
     waitlist = course.get('waitlist', [])
     if waitlist:
