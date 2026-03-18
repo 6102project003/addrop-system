@@ -3,53 +3,89 @@
 {% block content %}
 <h2>My Schedule</h2>
 
-{% set days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'] %}
-{% set times = ['09:00', '10:00', '11:00', '12:00', '14:00', '15:00', '16:00'] %}
+{% if courses|length == 0 %}
+<div style="text-align: center; padding: 60px; background: white; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+    <p style="font-size: 1.2rem; color: #666; margin-bottom: 20px;">You haven't enrolled in any courses yet.</p>
+    <a href="{{ url_for('student_courses') }}" style="padding: 10px 20px; background-color: #3498db; color: white; text-decoration: none; border-radius: 4px;">Browse Courses</a>
+</div>
+{% else %}
 
-<div class="schedule-grid">
-    <div class="schedule-header">
-        <div class="time-col"></div>
-        {% for day in days %}
-        <div class="day-col">{{ day }}</div>
-        {% endfor %}
-    </div>
-    
-    {% for time in times %}
-    <div class="schedule-row">
-        <div class="time-col">{{ time }}</div>
-        {% for day in days %}
-        <div class="course-cell">
-            {% for course in courses %}
-                {% if course.schedule and course.schedule.day == day %}
-                    {% set start_end = course.schedule.time.split('-') %}
-                    {% set start_hour = start_end[0] %}
-                    {% set end_hour = start_end[1] %}
-                    
-                    {# 檢查 current time 係咪喺 course 時間範圍內 #}
-                    {% if time >= start_hour and time < end_hour %}
-                    <div class="schedule-course">
-                        <strong>{{ course.courseId }}</strong>
-                        <div>{{ course.name }}</div>
-                        <div style="font-size: 0.7rem; margin-top: 3px;">{{ course.schedule.time }}</div>
-                    </div>
-                    {% endif %}
-                {% endif %}
+<!-- Simple List View -->
+<div style="background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+    <table style="width: 100%; border-collapse: collapse;">
+        <thead>
+            <tr style="background-color: #34495e; color: white;">
+                <th style="padding: 15px; text-align: left;">Day</th>
+                <th style="padding: 15px; text-align: left;">Time</th>
+                <th style="padding: 15px; text-align: left;">Course ID</th>
+                <th style="padding: 15px; text-align: left;">Course Name</th>
+                <th style="padding: 15px; text-align: left;">Instructor</th>
+                <th style="padding: 15px; text-align: left;">Room</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% set days_order = {'Mon': 1, 'Tue': 2, 'Wed': 3, 'Thu': 4, 'Fri': 5} %}
+            {% set sorted_courses = courses|sort(attribute='schedule.day') %}
+            
+            {% for course in sorted_courses %}
+            <tr style="border-bottom: 1px solid #ecf0f1;">
+                <td style="padding: 15px; font-weight: 500;">
+                    {{ course.schedule.day }}
+                </td>
+                <td style="padding: 15px;">
+                    <span style="background-color: #3498db; color: white; padding: 4px 12px; border-radius: 20px; font-size: 0.9rem;">
+                        {{ course.schedule.time }}
+                    </span>
+                </td>
+                <td style="padding: 15px; font-weight: 500; color: #2c3e50;">
+                    {{ course.courseId }}
+                </td>
+                <td style="padding: 15px;">
+                    {{ course.name }}
+                </td>
+                <td style="padding: 15px; color: #555;">
+                    {{ course.instructor or 'TBA' }}
+                </td>
+                <td style="padding: 15px; color: #555;">
+                    {{ course.schedule.room or 'TBA' }}
+                </td>
+            </tr>
             {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- Weekly Summary Card -->
+<div style="margin-top: 30px; background: white; border-radius: 8px; padding: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+    <h3 style="margin-bottom: 15px; color: #2c3e50;">Weekly Summary</h3>
+    <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px;">
+        {% set day_names = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'] %}
+        {% for day in day_names %}
+        <div style="background: #f8f9fa; border-radius: 8px; padding: 10px;">
+            <h4 style="text-align: center; margin-bottom: 10px; color: #34495e;">{{ day }}</h4>
+            {% set day_courses = courses|selectattr('schedule.day', 'equalto', day)|list %}
+            {% if day_courses %}
+                {% for course in day_courses %}
+                <div style="background: #3498db; color: white; padding: 8px; border-radius: 4px; margin-bottom: 5px; font-size: 0.85rem;">
+                    <strong>{{ course.courseId }}</strong><br>
+                    {{ course.schedule.time }}
+                </div>
+                {% endfor %}
+            {% else %}
+                <div style="text-align: center; color: #999; padding: 15px 0;">No classes</div>
+            {% endif %}
         </div>
         {% endfor %}
     </div>
-    {% endfor %}
 </div>
 
-<style>
-.schedule-course {
-    background: linear-gradient(135deg, #3498db, #2980b9);
-    color: white;
-    padding: 0.5rem;
-    border-radius: 4px;
-    font-size: 0.85rem;
-    height: 100%;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-}
-</style>
+<!-- Total Credits -->
+<div style="margin-top: 20px; padding: 15px; background: #e8f4fd; border-radius: 8px; text-align: right;">
+    <span style="font-size: 1.1rem;">
+        <strong>Total Credits:</strong> 
+        {{ courses|sum(attribute='credits') }}
+    </span>
+</div>
+
+{% endif %}
 {% endblock %}
