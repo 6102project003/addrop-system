@@ -84,6 +84,12 @@
     </form>
 </div>
 
+<!-- Search Box -->
+<div style="margin: 20px 0;">
+    <input type="text" id="courseSearch" placeholder="Search by Course ID, Name, Department, or Instructor..." 
+           style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 1rem;">
+</div>
+
 <!-- Bulk Delete Section with Checkboxes -->
 <div style="margin: 20px 0; display: flex; justify-content: space-between; align-items: center;">
     <div>
@@ -115,9 +121,9 @@
                 <th style="background-color: #34495e; color: white; padding: 1rem; text-align: left;">Actions</th>
             </tr>
         </thead>
-        <tbody>
+        <tbody id="coursesTableBody">
             {% for course in courses %}
-            <tr>
+            <tr class="course-row">
                 <td style="padding: 1rem; border-bottom: 1px solid #ecf0f1; text-align: center;">
                     <input type="checkbox" name="course_ids" value="{{ course.courseId }}" onchange="updateCount()" style="transform: scale(1.2);">
                 </td>
@@ -215,6 +221,31 @@ function downloadSampleCourses() {
     a.click();
     window.URL.revokeObjectURL(url);
 }
+
+// Search functionality
+const searchInput = document.getElementById('courseSearch');
+const rows = document.querySelectorAll('.course-row');
+
+searchInput.addEventListener('keyup', function() {
+    const searchTerm = this.value.toLowerCase();
+    
+    rows.forEach(row => {
+        const cells = row.getElementsByTagName('td');
+        const courseId = cells[1].textContent.toLowerCase();
+        const courseName = cells[2].textContent.toLowerCase();
+        const dept = cells[3].textContent.toLowerCase();
+        const instructor = cells[5].textContent.toLowerCase();
+        
+        if (courseId.includes(searchTerm) || 
+            courseName.includes(searchTerm) || 
+            dept.includes(searchTerm) || 
+            instructor.includes(searchTerm)) {
+            row.style.display = '';
+        } else {
+            row.style.display = 'none';
+        }
+    });
+});
 
 // Checkbox functions
 function toggleAll(source) {
