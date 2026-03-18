@@ -767,10 +767,13 @@ def admin_change_password():
         new_password_hash = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
         admins_table.update_item(
             Key={'adminId': 'admin1'},
-            UpdateExpression='SET password_hash = :p, name = :n',
+            UpdateExpression='SET password_hash = :p, #n = :name_val',
+            ExpressionAttributeNames={
+                '#n': 'name'
+            },
             ExpressionAttributeValues={
                 ':p': new_password_hash,
-                ':n': 'Administrator'
+                ':name_val': 'Administrator'
             }
         )
         
