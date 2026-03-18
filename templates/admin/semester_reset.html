@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>Semester Reset</h2>
+
+<div style="max-width: 800px; margin: 0 auto;">
+
+    <div class="warning-box" style="background-color: #fff3cd; border: 1px solid #ffeeba; color: #856404; padding: 15px; border-radius: 8px; margin-bottom: 30px;">
+        <strong>⚠️ Warning:</strong> These actions are irreversible. Please proceed with caution.
+    </div>
+
+    <!-- Option 1: Clear Enrollments Only -->
+    <div class="reset-option" style="background: white; border-radius: 8px; padding: 25px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); border-left: 5px solid #3498db;">
+        <h3 style="margin-bottom: 10px; color: #2c3e50;">1️⃣ Clear All Enrollments</h3>
+        <p style="color: #666; margin-bottom: 15px;">Remove all student course enrollments. Students and courses will be preserved.</p>
+        <form method="POST" action="{{ url_for('admin_reset_enrollments') }}" onsubmit="return confirm('Are you sure you want to clear ALL enrollments? This will remove all students from all courses.')">
+            <button type="submit" style="padding: 10px 20px; background-color: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer;">Clear Enrollments</button>
+        </form>
+    </div>
+
+    <!-- Option 2: Clear Enrollments + Delete All Courses -->
+    <div class="reset-option" style="background: white; border-radius: 8px; padding: 25px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); border-left: 5px solid #e67e22;">
+        <h3 style="margin-bottom: 10px; color: #2c3e50;">2️⃣ Clear Enrollments + Delete All Courses</h3>
+        <p style="color: #666; margin-bottom: 15px;">Remove all enrollments and delete all courses. Students will be preserved.</p>
+        <form method="POST" action="{{ url_for('admin_reset_courses') }}" onsubmit="return confirm('Are you sure you want to delete ALL courses? This cannot be undone.')">
+            <button type="submit" style="padding: 10px 20px; background-color: #e67e22; color: white; border: none; border-radius: 4px; cursor: pointer;">Reset Courses</button>
+        </form>
+    </div>
+
+    <!-- Option 3: Clear Enrollments + Delete All Students -->
+    <div class="reset-option" style="background: white; border-radius: 8px; padding: 25px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); border-left: 5px solid #e74c3c;">
+        <h3 style="margin-bottom: 10px; color: #2c3e50;">3️⃣ Clear Enrollments + Delete All Students</h3>
+        <p style="color: #666; margin-bottom: 15px;">Remove all enrollments and delete all students. Courses will be preserved.</p>
+        <form method="POST" action="{{ url_for('admin_reset_students') }}" onsubmit="return confirm('Are you sure you want to delete ALL students? This cannot be undone.')">
+            <button type="submit" style="padding: 10px 20px; background-color: #e74c3c; color: white; border: none; border-radius: 4px; cursor: pointer;">Reset Students</button>
+        </form>
+    </div>
+
+    <!-- Option 4: Clear Enrollments + Delete All Courses + Delete All Students -->
+    <div class="reset-option" style="background: white; border-radius: 8px; padding: 25px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); border-left: 5px solid #c0392b;">
+        <h3 style="margin-bottom: 10px; color: #2c3e50;">4️⃣ 🔥 Complete Reset</h3>
+        <p style="color: #666; margin-bottom: 15px;">Clear all enrollments, delete all courses, and delete all students. Start fresh!</p>
+        <form method="POST" action="{{ url_for('admin_reset_complete') }}" onsubmit="return confirm('⚠️ FINAL WARNING: This will delete EVERYTHING (enrollments, courses, and students). Are you absolutely sure?')">
+            <button type="submit" style="padding: 10px 20px; background-color: #c0392b; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">Complete Reset</button>
+        </form>
+    </div>
+
+    <div style="margin-top: 30px; text-align: center;">
+        <a href="{{ url_for('admin_courses') }}" style="color: #3498db; text-decoration: none;">← Back to Manage Courses</a>
+    </div>
+</div>
+
+<style>
+.reset-option:hover {
+    transform: translateY(-2px);
+    transition: transform 0.2s;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15) !important;
+}
+</style>
+{% endblock %}
