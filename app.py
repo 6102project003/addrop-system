@@ -370,15 +370,6 @@ def admin_students():
     response = students_table.scan()
     students = response.get('Items', [])
     
-    # 為每個學生拎埋已選課程嘅詳細資料
-    for student in students:
-        enrolled_courses = []
-        for course_id in student.get('enrolledCourses', []):
-            course = courses_table.get_item(Key={'courseId': course_id}).get('Item', {})
-            if course:
-                enrolled_courses.append(course.get('name', course_id))
-        student['enrolled_course_names'] = ', '.join(enrolled_courses) if enrolled_courses else 'None'
-    
     return render_template('admin/students.html', students=students, user=session)
 
 # ========== Admin Upload CSV Routes ==========
