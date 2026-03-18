@@ -123,7 +123,7 @@
         </thead>
         <tbody id="coursesTableBody">
             {% for course in courses %}
-            <tr class="course-row">
+            <tr class="course-row" id="course-row-{{ course.courseId }}">
                 <td style="padding: 1rem; border-bottom: 1px solid #ecf0f1; text-align: center;">
                     <input type="checkbox" name="course_ids" value="{{ course.courseId }}" onchange="updateCount()" style="transform: scale(1.2);">
                 </td>
@@ -320,10 +320,15 @@ function deleteSingle(courseId) {
     }
 }
 
-// Edit Capacity functions
+// Edit Capacity functions - FIXED VERSION
 function editCapacity(courseId) {
-    // Get course details from the table row
-    const row = event.target.closest('tr');
+    // Get the row by ID instead of using event.target
+    const row = document.getElementById('course-row-' + courseId);
+    if (!row) {
+        alert('Error: Course row not found');
+        return;
+    }
+    
     const cells = row.getElementsByTagName('td');
     const courseName = cells[2].innerText;
     const enrolled = cells[7].innerText;
