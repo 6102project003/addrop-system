@@ -372,6 +372,40 @@ def admin_students():
     
     return render_template('admin/students.html', students=students, user=session)
 
+@app.route('/admin/course/<course_id>/update-capacity', methods=['POST'])
+@login_required
+@admin_required
+def admin_update_course_capacity(course_id):
+    try:
+        new_capacity = int(request.form['capacity'])
+        
+        # Get current course to check enrolled <= new capacity
+        response = courses_table.get_item(Key={'courseId': course_id})
+        if 'Item' not in response:
+            flash('Course not found', 'error')
+            return redirect(url_for('admin_courses'))
+        
+        course = response['Item']
+        current_enrolled = course.get('enrolled', 0)
+        
+        if new_capacity < current_enrolled:
+            flash(f'Cannot set capacity below current enrolled students ({current_enrolled})', 'error')
+            return redirect(url_for('admin_courses'))
+        
+        # Update capacity
+        courses_table.update_item(
+            Key={'courseId': course_id},
+            UpdateExpression='SET capacity = :c',
+            ExpressionAttributeValues={':c': new_capacity}
+        )
+        
+        flash(f'Capacity updated successfully for {course_id}', 'success')
+        
+    except Exception as e:
+        flash(f'Error updating capacity: {str(e)}', 'error')
+    
+    return redirect(url_for('admin_courses'))
+
 # ========== Admin Upload CSV Routes ==========
 @app.route('/admin/upload/courses', methods=['POST'])
 @login_required
