@@ -98,13 +98,14 @@
                 <td style="padding: 1rem; border-bottom: 1px solid #ecf0f1;">{{ student.studentId }}</td>
                 <td style="padding: 1rem; border-bottom: 1px solid #ecf0f1;">{{ student.name }}</td>
                 <td style="padding: 1rem; border-bottom: 1px solid #ecf0f1;">
-                    <span style="background-color: {% if student.enrolled_count > 0 %}#27ae60{% else %}#95a5a6{% endif %}; 
+                    {% set enrolled_count = student.enrolledCourses|length %}
+                    <span style="background-color: {% if enrolled_count > 0 %}#27ae60{% else %}#95a5a6{% endif %}; 
                                  color: white; 
                                  padding: 4px 10px; 
                                  border-radius: 20px; 
                                  font-size: 0.9rem;
                                  font-weight: 500;">
-                        {{ student.enrolled_count }} course{% if student.enrolled_count != 1 %}s{% endif %}
+                        {{ enrolled_count }} course{% if enrolled_count != 1 %}s{% endif %}
                     </span>
                 </td>
                 <td style="padding: 1rem; border-bottom: 1px solid #ecf0f1;">••••••••</td>
