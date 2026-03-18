@@ -940,6 +940,141 @@ def admin_change_password():
     
     return render_template('admin/change_password.html', user=session)
 
+# ========== Semester Reset Functions ==========
+@app.route('/admin/semester-reset')
+@login_required
+@admin_required
+def admin_semester_reset():
+    return render_template('admin/semester_reset.html', user=session)
+
+@app.route('/admin/reset/enrollments', methods=['POST'])
+@login_required
+@admin_required
+def admin_reset_enrollments():
+    try:
+        # 1. Delete all enrollments
+        enrollments = enrollments_table.scan().get('Items', [])
+        for enrollment in enrollments:
+            enrollments_table.delete_item(Key={'enrollmentId': enrollment['enrollmentId']})
+        
+        # 2. Reset enrolled count in all courses to 0
+        courses = courses_table.scan().get('Items', [])
+        for course in courses:
+            courses_table.update_item(
+                Key={'courseId': course['courseId']},
+                UpdateExpression='SET enrolled = :zero, waitlist = :empty',
+                ExpressionAttributeValues={':zero': 0, ':empty': []}
+            )
+        
+        # 3. Clear enrolledCourses from all students
+        students = students_table.scan().get('Items', [])
+        for student in students:
+            students_table.update_item(
+                Key={'studentId': student['studentId']},
+                UpdateExpression='SET enrolledCourses = :empty',
+                ExpressionAttributeValues={':empty': []}
+            )
+        
+        flash('All enrollments cleared successfully', 'success')
+        logging.info("Admin cleared all enrollments")
+        
+    except Exception as e:
+        flash(f'Error: {str(e)}', 'error')
+    
+    return redirect(url_for('admin_semester_reset'))
+
+@app.route('/admin/reset/courses', methods=['POST'])
+@login_required
+@admin_required
+def admin_reset_courses():
+    try:
+        # 1. Delete all enrollments
+        enrollments = enrollments_table.scan().get('Items', [])
+        for enrollment in enrollments:
+            enrollments_table.delete_item(Key={'enrollmentId': enrollment['enrollmentId']})
+        
+        # 2. Delete all courses
+        courses = courses_table.scan().get('Items', [])
+        for course in courses:
+            courses_table.delete_item(Key={'courseId': course['courseId']})
+        
+        # 3. Clear enrolledCourses from all students
+        students = students_table.scan().get('Items', [])
+        for student in students:
+            students_table.update_item(
+                Key={'studentId': student['studentId']},
+                UpdateExpression='SET enrolledCourses = :empty',
+                ExpressionAttributeValues={':empty': []}
+            )
+        
+        flash('All courses deleted and enrollments cleared', 'success')
+        logging.info("Admin deleted all courses")
+        
+    except Exception as e:
+        flash(f'Error: {str(e)}', 'error')
+    
+    return redirect(url_for('admin_semester_reset'))
+
+@app.route('/admin/reset/students', methods=['POST'])
+@login_required
+@admin_required
+def admin_reset_students():
+    try:
+        # 1. Delete all enrollments
+        enrollments = enrollments_table.scan().get('Items', [])
+        for enrollment in enrollments:
+            enrollments_table.delete_item(Key={'enrollmentId': enrollment['enrollmentId']})
+        
+        # 2. Delete all students
+        students = students_table.scan().get('Items', [])
+        for student in students:
+            students_table.delete_item(Key={'studentId': student['studentId']})
+        
+        # 3. Reset enrolled count in all courses to 0
+        courses = courses_table.scan().get('Items', [])
+        for course in courses:
+            courses_table.update_item(
+                Key={'courseId': course['courseId']},
+                UpdateExpression='SET enrolled = :zero, waitlist = :empty',
+                ExpressionAttributeValues={':zero': 0, ':empty': []}
+            )
+        
+        flash('All students deleted and enrollments cleared', 'success')
+        logging.info("Admin deleted all students")
+        
+    except Exception as e:
+        flash(f'Error: {str(e)}', 'error')
+    
+    return redirect(url_for('admin_semester_reset'))
+
+@app.route('/admin/reset/complete', methods=['POST'])
+@login_required
+@admin_required
+def admin_reset_complete():
+    try:
+        # 1. Delete all enrollments
+        enrollments = enrollments_table.scan().get('Items', [])
+        for enrollment in enrollments:
+            enrollments_table.delete_item(Key={'enrollmentId': enrollment['enrollmentId']})
+        
+        # 2. Delete all courses
+        courses = courses_table.scan().get('Items', [])
+        for course in courses:
+            courses_table.delete_item(Key={'courseId': course['courseId']})
+        
+        # 3. Delete all students
+        students = students_table.scan().get('Items', [])
+        for student in students:
+            students_table.delete_item(Key={'studentId': student['studentId']})
+        
+        flash('Complete reset: All enrollments, courses, and students deleted', 'success')
+        logging.info("Admin performed complete system reset")
+        
+    except Exception as e:
+        flash(f'Error: {str(e)}', 'error')
+    
+    return redirect(url_for('admin_semester_reset'))
+
 # ========== 統計 API ==========
 @app.route('/api/stats/enrollment-by-dept')
 @login_required
