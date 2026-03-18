@@ -14,74 +14,109 @@
 <div style="background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 30px;">
     <table style="width: 100%; border-collapse: collapse;">
         <thead>
-            
-                <th style="padding: 15px; text-align: left; background-color: #34495e; color: white;">Day</th>
-                <th style="padding: 15px; text-align: left; background-color: #34495e; color: white;">Time</th>
-                <th style="padding: 15px; text-align: left; background-color: #34495e; color: white;">Course ID</th>
-                <th style="padding: 15px; text-align: left; background-color: #34495e; color: white;">Course Name</th>
-                <th style="padding: 15px; text-align: left; background-color: #34495e; color: white;">Instructor</th>
-                <th style="padding: 15px; text-align: left; background-color: #34495e; color: white;">Room</th>
-            
+            <tr style="background-color: #34495e; color: white;">
+                <th style="padding: 15px; text-align: left;">Day</th>
+                <th style="padding: 15px; text-align: left;">Time</th>
+                <th style="padding: 15px; text-align: left;">Course ID</th>
+                <th style="padding: 15px; text-align: left;">Course Name</th>
+                <th style="padding: 15px; text-align: left;">Instructor</th>
+                <th style="padding: 15px; text-align: left;">Room</th>
+            </tr>
         </thead>
         <tbody>
             {% set sorted_courses = courses|sort(attribute='schedule.day') %}
             
             {% for course in sorted_courses %}
             <tr style="border-bottom: 1px solid #ecf0f1;">
-                <td style="padding: 15px; font-weight: 500;">{{ course.schedule.day }}
+                <td style="padding: 15px; font-weight: 500;">{{ course.schedule.day }}</td>
                 <td style="padding: 15px;">
                     <span style="background-color: #3498db; color: white; padding: 4px 12px; border-radius: 20px; font-size: 0.9rem;">
                         {{ course.schedule.time }}
                     </span>
-                
-                <td style="padding: 15px; font-weight: 500; color: #2c3e50;">{{ course.courseId }}
-                <td style="padding: 15px;">{{ course.name }}
-                <td style="padding: 15px; color: #555;">{{ course.instructor or 'TBA' }}
-                <td style="padding: 15px; color: #555;">{{ course.schedule.room or 'TBA' }}
-            
+                </td>
+                <td style="padding: 15px; font-weight: 500; color: #2c3e50;">{{ course.courseId }}</td>
+                <td style="padding: 15px;">{{ course.name }}</td>
+                <td style="padding: 15px; color: #555;">{{ course.instructor or 'TBA' }}</td>
+                <td style="padding: 15px; color: #555;">{{ course.schedule.room or 'TBA' }}</td>
+            </tr>
             {% endfor %}
         </tbody>
-    
+    </table>
 </div>
 
-<!-- Timetable (每個課程佔一整行) -->
+<!-- Timetable (朝九晚十) -->
 <div style="background: white; border-radius: 8px; padding: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-    <h3 style="margin-bottom: 20px; color: #2c3e50;">📅 Timetable</h3>
+    <h3 style="margin-bottom: 20px; color: #2c3e50;">📅 Timetable (09:00 - 22:00)</h3>
     
     <div style="overflow-x: auto;">
         <table style="width: 100%; border-collapse: collapse; background: white;">
             <thead>
-                
-                    <th style="background-color: #34495e; color: white; padding: 12px; text-align: left;">Day</th>
-                    <th style="background-color: #34495e; color: white; padding: 12px; text-align: left;">Time</th>
-                    <th style="background-color: #34495e; color: white; padding: 12px; text-align: left;">Course ID</th>
-                    <th style="background-color: #34495e; color: white; padding: 12px; text-align: left;">Course Name</th>
-                    <th style="background-color: #34495e; color: white; padding: 12px; text-align: left;">Location</th>
-                
+                <tr>
+                    <th style="background-color: #34495e; color: white; padding: 12px; text-align: center; width: 80px;">Time</th>
+                    <th style="background-color: #34495e; color: white; padding: 12px; text-align: center;">Monday</th>
+                    <th style="background-color: #34495e; color: white; padding: 12px; text-align: center;">Tuesday</th>
+                    <th style="background-color: #34495e; color: white; padding: 12px; text-align: center;">Wednesday</th>
+                    <th style="background-color: #34495e; color: white; padding: 12px; text-align: center;">Thursday</th>
+                    <th style="background-color: #34495e; color: white; padding: 12px; text-align: center;">Friday</th>
+                </tr>
             </thead>
             <tbody>
-                {% set sorted_courses = courses|sort(attribute='schedule.day') %}
+                {% set time_slots = [
+                    '09:00', '10:00', '11:00', '12:00', '13:00', 
+                    '14:00', '15:00', '16:00', '17:00', '18:00',
+                    '19:00', '20:00', '21:00', '22:00'
+                ] %}
+                {% set days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'] %}
                 
-                {% for course in sorted_courses %}
-                <tr style="border-bottom: 1px solid #ecf0f1; background-color: #f8f9fa;">
-                    <td style="padding: 15px; font-weight: 600; color: #2c3e50;">{{ course.schedule.day }}
-                    <td style="padding: 15px;">
-                        <span style="background-color: #27ae60; color: white; padding: 6px 15px; border-radius: 20px; font-weight: 500;">
-                            {{ course.schedule.time }}
-                        </span>
-                    
-                    <td style="padding: 15px; font-weight: 600; color: #2980b9;">{{ course.courseId }}
-                    <td style="padding: 15px; font-weight: 500;">{{ course.name }}
-                    <td style="padding: 15px; color: #555;">
-                        {{ course.schedule.room or 'TBA' }}
-                        {% if course.instructor %}
-                        <br><small style="color: #7f8c8d;">({{ course.instructor }})</small>
-                        {% endif %}
-                    
+                {# 10 種顏色 (50% 透明度) #}
+                {% set colors = [
+                    'rgba(255, 99, 132, 0.5)',   /* 粉紅 */
+                    'rgba(54, 162, 235, 0.5)',    /* 藍 */
+                    'rgba(255, 206, 86, 0.5)',    /* 黃 */
+                    'rgba(75, 192, 192, 0.5)',    /* 青綠 */
+                    'rgba(153, 102, 255, 0.5)',   /* 紫 */
+                    'rgba(255, 159, 64, 0.5)',    /* 橙 */
+                    'rgba(201, 203, 207, 0.5)',   /* 灰 */
+                    'rgba(255, 99, 132, 0.5)',    /* 粉紅 (重複) */
+                    'rgba(54, 162, 235, 0.5)',    /* 藍 (重複) */
+                    'rgba(255, 206, 86, 0.5)'     /* 黃 (重複) */
+                ] %}
                 
+                {% for slot in time_slots %}
+                <tr style="border-bottom: 1px solid #ecf0f1;">
+                    <td style="padding: 10px; background-color: #f8f9fa; font-weight: 500; text-align: center;">
+                        {{ slot }}
+                    </td>
+                    
+                    {% for day in days %}
+                        <td style="padding: 8px; vertical-align: middle;">
+                            {% for course in courses %}
+                                {% if course.schedule.day == day %}
+                                    {% set start_time = course.schedule.time.split('-')[0] %}
+                                    {% set end_time = course.schedule.time.split('-')[1] %}
+                                    {% if slot >= start_time and slot < end_time %}
+                                        {% set course_index = loop.index0 %}
+                                        <div style="background-color: {{ colors[course_index % 10] }}; 
+                                                    color: #2c3e50; 
+                                                    padding: 10px; 
+                                                    border-radius: 6px; 
+                                                    font-size: 0.85rem;
+                                                    font-weight: 500;
+                                                    border-left: 3px solid {{ colors[course_index % 10].replace('0.5', '1') }};
+                                                    box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                                            <strong>{{ course.courseId }}</strong><br>
+                                            <small>{{ course.name[:15] }}{% if course.name|length > 15 %}...{% endif %}</small><br>
+                                            <small style="font-size: 0.7rem; opacity: 0.8;">{{ course.schedule.time }}</small>
+                                        </div>
+                                    {% endif %}
+                                {% endif %}
+                            {% endfor %}
+                        </td>
+                    {% endfor %}
+                </tr>
                 {% endfor %}
             </tbody>
-        
+        </table>
     </div>
 </div>
 
