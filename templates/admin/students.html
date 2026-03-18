@@ -74,7 +74,7 @@
     </div>
 </div>
 
-<!-- Students Table with Checkboxes -->
+<!-- Students Table with Checkboxes (Password column removed) -->
 <form id="deleteForm" method="POST" action="{{ url_for('admin_bulk_delete_students') }}">
     <table class="courses-table" style="width: 100%; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
         <thead>
@@ -85,7 +85,6 @@
                 <th style="background-color: #34495e; color: white; padding: 1rem; text-align: left;">Student ID</th>
                 <th style="background-color: #34495e; color: white; padding: 1rem; text-align: left;">Name</th>
                 <th style="background-color: #34495e; color: white; padding: 1rem; text-align: left;">Enrolled</th>
-                <th style="background-color: #34495e; color: white; padding: 1rem; text-align: left;">Password</th>
                 <th style="background-color: #34495e; color: white; padding: 1rem; text-align: left;">Actions</th>
             </tr>
         </thead>
@@ -108,7 +107,6 @@
                         {{ enrolled_count }} course{% if enrolled_count != 1 %}s{% endif %}
                     </span>
                 </td>
-                <td style="padding: 1rem; border-bottom: 1px solid #ecf0f1;">••••••••</td>
                 <td style="padding: 1rem; border-bottom: 1px solid #ecf0f1;">
                     <button type="button" onclick="viewCourses('{{ student.studentId }}')" style="padding: 0.3rem 1rem; background-color: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer; margin-right: 0.3rem;">View Courses</button>
                     <button type="button" onclick="resetPassword('{{ student.studentId }}')" style="padding: 0.3rem 1rem; background-color: #f39c12; color: white; border: none; border-radius: 4px; cursor: pointer; margin-right: 0.3rem;">Reset Password</button>
