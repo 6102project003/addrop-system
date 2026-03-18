@@ -1,17 +1,23 @@
 import os
 import json
 import boto3
-from flask import Flask, render_template, request, redirect, url_for, session, jsonify, flash
-from functools import wraps
-from datetime import datetime
-import uuid
 import bcrypt
 import csv
 import io
-from werkzeug.utils import secure_filename
+import uuid
+import logging
+from flask import Flask, render_template, request, redirect, url_for, session, jsonify, flash
+from functools import wraps
+from datetime import datetime
 
 app = Flask(__name__)
 app.secret_key = 'your-secret-key-here'  # 改做安全嘅 key
+
+# Set up logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
 
 # AWS 設定
 dynamodb = boto3.resource('dynamodb', region_name='us-east-1')
@@ -33,7 +39,7 @@ def admin_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if session.get('role') != 'admin':
-            return redirect(url_for('student_dashboard'))
+            return redirect(url_for('student_courses'))
         return f(*args, **kwargs)
     return decorated_function
 
@@ -52,12 +58,33 @@ def login():
         user_id = request.form['user_id']
         password = request.form['password']
         
-        # Admin login (special case - 可以之後都改用 hash)
-        if user_id == 'admin' and password == 'admin123':
-            session['user_id'] = 'admin1'
-            session['user_name'] = 'Administrator'
-            session['role'] = 'admin'
-            return redirect(url_for('admin_courses'))
+        # Admin login - 改用 DynamoDB check
+        if user_id == 'admin':
+            response = admins_table.get_item(Key={'adminId': 'admin1'})
+            admin = response.get('Item', {})
+            
+            if admin:
+                stored_hash = admin.get('password_hash')
+                if stored_hash and bcrypt.checkpw(password.encode('utf-8'), stored_hash.encode('utf-8')):
+                    session['user_id'] = 'admin1'
+                    session['user_name'] = admin.get('name', 'Administrator')
+                    session['role'] = 'admin'
+                    logging.info(f"Admin logged in")
+                    return redirect(url_for('admin_courses'))
+            else:
+                # 第一次 login，用 hardcoded admin123 創建 admin record
+                if password == 'admin123':
+                    password_hash = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+                    admins_table.put_item(Item={
+                        'adminId': 'admin1',
+                        'name': 'Administrator',
+                        'password_hash': password_hash
+                    })
+                    session['user_id'] = 'admin1'
+                    session['user_name'] = 'Administrator'
+                    session['role'] = 'admin'
+                    logging.info(f"Admin logged in (first time)")
+                    return redirect(url_for('admin_courses'))
         
         # Student login
         elif user_id.startswith('s'):
@@ -83,6 +110,7 @@ def login():
                         session['user_id'] = user_id
                         session['user_name'] = student.get('name', f'Student {user_id}')
                         session['role'] = 'student'
+                        logging.info(f"Student {user_id} logged in (migrated to hash)")
                         return redirect(url_for('student_courses'))
                 else:
                     # 有 hash，用 bcrypt check
@@ -90,6 +118,7 @@ def login():
                         session['user_id'] = user_id
                         session['user_name'] = student.get('name', f'Student {user_id}')
                         session['role'] = 'student'
+                        logging.info(f"Student {user_id} logged in")
                         return redirect(url_for('student_courses'))
             
             return render_template('login.html', error='Invalid credentials')
@@ -170,6 +199,52 @@ def student_schedule():
                          courses=courses,
                          user=session)
 
+# ========== 學生 Change Password ==========
+@app.route('/student/change-password', methods=['GET', 'POST'])
+@login_required
+def student_change_password():
+    if session.get('role') != 'student':
+        return redirect(url_for('admin_courses'))
+    
+    if request.method == 'POST':
+        current_password = request.form['current_password']
+        new_password = request.form['new_password']
+        confirm_password = request.form['confirm_password']
+        
+        if new_password != confirm_password:
+            flash('New password and confirm password do not match', 'error')
+            return redirect(url_for('student_change_password'))
+        
+        response = students_table.get_item(Key={'studentId': session['user_id']})
+        student = response.get('Item', {})
+        
+        stored_hash = student.get('password_hash')
+        
+        # 如果冇 hash，用舊方法 check
+        if not stored_hash:
+            old_password = student.get('password', session['user_id'].replace('s', ''))
+            if current_password != old_password:
+                flash('Current password is incorrect', 'error')
+                return redirect(url_for('student_change_password'))
+        else:
+            if not bcrypt.checkpw(current_password.encode('utf-8'), stored_hash.encode('utf-8')):
+                flash('Current password is incorrect', 'error')
+                return redirect(url_for('student_change_password'))
+        
+        # Hash 新密碼
+        new_password_hash = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+        
+        students_table.update_item(
+            Key={'studentId': session['user_id']},
+            UpdateExpression='SET password_hash = :p',
+            ExpressionAttributeValues={':p': new_password_hash}
+        )
+        
+        flash('Password changed successfully', 'success')
+        return redirect(url_for('student_courses'))
+    
+    return render_template('student/change_password.html', user=session)
+
 # ========== 學生 API（加退選）=========
 @app.route('/api/enroll', methods=['POST'])
 @login_required
@@ -185,7 +260,7 @@ def api_enroll():
         return drop_course(student_id, course_id)
 
 def enroll_course(student_id, course_id):
-    # 檢查課程
+    # 檢查課程是否存在
     course_resp = courses_table.get_item(Key={'courseId': course_id})
     if 'Item' not in course_resp:
         return jsonify({'error': 'Course not found'}), 404
@@ -205,15 +280,52 @@ def enroll_course(student_id, course_id):
             )
         return jsonify({'message': 'Course full, added to waitlist'})
     
-    # 檢查時間衝突
+    # ===== 時間衝突檢查 =====
     student_resp = students_table.get_item(Key={'studentId': student_id})
     student = student_resp.get('Item', {})
     enrolled_ids = student.get('enrolledCourses', [])
     
+    # 拎新課程嘅時間
+    new_day = course.get('schedule', {}).get('day')
+    new_time = course.get('schedule', {}).get('time')
+    
+    # 如果新課程冇時間，就當冇衝突
+    if not new_day or not new_time:
+        return jsonify({'error': 'Course schedule not available'}), 400
+    
+    # 拆新課程嘅開始同結束時間
+    try:
+        new_start, new_end = new_time.split('-')
+    except:
+        return jsonify({'error': 'Invalid course time format'}), 400
+    
+    # Check 每一科已選課程
     for cid in enrolled_ids:
         c = courses_table.get_item(Key={'courseId': cid}).get('Item', {})
-        if c.get('schedule') == course.get('schedule'):
-            return jsonify({'error': 'Schedule conflict'}), 400
+        if not c:
+            continue
+            
+        old_day = c.get('schedule', {}).get('day')
+        old_time = c.get('schedule', {}).get('time')
+        
+        # 如果唔同日子，就冇衝突
+        if old_day != new_day:
+            continue
+            
+        if not old_time:
+            continue
+            
+        try:
+            old_start, old_end = old_time.split('-')
+        except:
+            continue
+        
+        # 時間衝突檢查：
+        # 新課程 start < 舊課程 end  AND 新課程 end > 舊課程 start
+        if new_start < old_end and new_end > old_start:
+            return jsonify({'error': f'Schedule conflict with {c.get("courseId")} - {c.get("name")}'}), 400
+    
+    # ===== 時間檢查完畢 =====
     
     # 加選
     enrollment_id = str(uuid.uuid4())
@@ -314,70 +426,9 @@ def admin_add_course():
         'waitlist': []
     }
     courses_table.put_item(Item=course)
+    logging.info(f"Admin added course {course['courseId']}")
+    flash(f'Course {course["courseId"]} added successfully', 'success')
     return redirect(url_for('admin_courses'))
-
-@app.route('/admin/courses/update/<course_id>', methods=['POST'])
-@login_required
-@admin_required
-def admin_update_course(course_id):
-    update_expr = 'SET '
-    expr_attrs = {}
-    
-    fields = ['name', 'credits', 'capacity', 'department', 'instructor']
-    for field in fields:
-        if field in request.form:
-            update_expr += f'{field} = :{field}, '
-            if field in ['credits', 'capacity']:
-                expr_attrs[f':{field}'] = int(request.form[field])
-            else:
-                expr_attrs[f':{field}'] = request.form[field]
-    
-    # 處理 schedule
-    if 'schedule_day' in request.form and 'schedule_time' in request.form:
-        update_expr += 'schedule = :schedule, '
-        expr_attrs[':schedule'] = {
-            'day': request.form['schedule_day'],
-            'time': request.form['schedule_time']
-        }
-    
-    update_expr = update_expr.rstrip(', ')
-    
-    courses_table.update_item(
-        Key={'courseId': course_id},
-        UpdateExpression=update_expr,
-        ExpressionAttributeValues=expr_attrs
-    )
-    return redirect(url_for('admin_courses'))
-
-@app.route('/admin/courses/delete/<course_id>')
-@login_required
-@admin_required
-def admin_delete_course(course_id):
-    courses_table.delete_item(Key={'courseId': course_id})
-    return redirect(url_for('admin_courses'))
-
-@app.route('/admin/stats')
-@login_required
-@admin_required
-def admin_stats():
-    # 拎全部課程
-    response = courses_table.scan()
-    courses = response.get('Items', [])
-    
-    # 按 courseId 排序
-    courses.sort(key=lambda x: x.get('courseId', ''))
-    
-    return render_template('admin/stats.html', user=session, courses=courses)
-
-@app.route('/admin/students')
-@login_required
-@admin_required
-def admin_students():
-    # Scan 全部 students
-    response = students_table.scan()
-    students = response.get('Items', [])
-    
-    return render_template('admin/students.html', students=students, user=session)
 
 @app.route('/admin/course/<course_id>/update-capacity', methods=['POST'])
 @login_required
@@ -406,6 +457,7 @@ def admin_update_course_capacity(course_id):
             ExpressionAttributeValues={':c': new_capacity}
         )
         
+        logging.info(f"Admin updated capacity for {course_id} to {new_capacity}")
         flash(f'Capacity updated successfully for {course_id}', 'success')
         
     except Exception as e:
@@ -413,112 +465,25 @@ def admin_update_course_capacity(course_id):
     
     return redirect(url_for('admin_courses'))
 
-# ========== Admin Upload CSV Routes ==========
-@app.route('/admin/upload/courses', methods=['POST'])
+@app.route('/admin/courses/delete/<course_id>')
 @login_required
 @admin_required
-def admin_upload_courses():
-    if 'file' not in request.files:
-        flash('No file uploaded', 'error')
-        return redirect(url_for('admin_courses'))
-    
-    file = request.files['file']
-    if file.filename == '':
-        flash('No file selected', 'error')
-        return redirect(url_for('admin_courses'))
-    
-    if not file.filename.endswith('.csv'):
-        flash('Please upload a CSV file', 'error')
-        return redirect(url_for('admin_courses'))
-    
-    # Read CSV file
-    stream = io.StringIO(file.stream.read().decode("UTF8"), newline=None)
-    csv_reader = csv.DictReader(stream)
-    
-    success_count = 0
-    error_count = 0
-    
-    for row in csv_reader:
-        try:
-            # 預期 CSV 欄位：
-            # courseId,name,credits,capacity,department,instructor,day,time
-            course = {
-                'courseId': row['courseId'],
-                'name': row['name'],
-                'credits': int(row.get('credits', 3)),
-                'capacity': int(row.get('capacity', 50)),
-                'enrolled': 0,
-                'department': row.get('department', ''),
-                'instructor': row.get('instructor', ''),
-                'schedule': {
-                    'day': row.get('day', 'Mon'),
-                    'time': row.get('time', '09:00-12:00')
-                },
-                'waitlist': []
-            }
-            
-            # 插入 DynamoDB
-            courses_table.put_item(Item=course)
-            success_count += 1
-            
-        except Exception as e:
-            print(f"Error inserting course: {e}")
-            error_count += 1
-    
-    flash(f"Upload complete: {success_count} courses added, {error_count} errors", 'success')
+def admin_delete_course(course_id):
+    courses_table.delete_item(Key={'courseId': course_id})
+    logging.info(f"Admin deleted course {course_id}")
+    flash(f'Course {course_id} deleted successfully', 'success')
     return redirect(url_for('admin_courses'))
 
-@app.route('/admin/upload/students', methods=['POST'])
+@app.route('/admin/students')
 @login_required
 @admin_required
-def admin_upload_students():
-    if 'file' not in request.files:
-        flash('No file uploaded', 'error')
-        return redirect(url_for('admin_students'))
+def admin_students():
+    # Scan 全部 students
+    response = students_table.scan()
+    students = response.get('Items', [])
     
-    file = request.files['file']
-    if file.filename == '':
-        flash('No file selected', 'error')
-        return redirect(url_for('admin_students'))
-    
-    if not file.filename.endswith('.csv'):
-        flash('Please upload a CSV file', 'error')
-        return redirect(url_for('admin_students'))
-    
-    # Read CSV file
-    stream = io.StringIO(file.stream.read().decode("UTF8"), newline=None)
-    csv_reader = csv.DictReader(stream)
-    
-    success_count = 0
-    error_count = 0
-    
-    for row in csv_reader:
-        try:
-            student_id = row['studentId']
-            name = row['name']
-            password = row.get('password', student_id.replace('s', ''))
-        
-            # Hash 密碼
-            password_hash = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
-        
-            student = {
-                'studentId': student_id,
-                'name': name,
-                'password_hash': password_hash,
-                'enrolledCourses': []
-            }
-        
-            students_table.put_item(Item=student)
-            success_count += 1
-        
-        except Exception as e:
-            print(f"Error inserting student: {e}")
-            error_count += 1
-    
-    flash(f"Upload complete: {success_count} students added, {error_count} errors", 'success')
-    return redirect(url_for('admin_students'))
+    return render_template('admin/students.html', students=students, user=session)
 
-# ========== Admin Student Management ==========
 @app.route('/admin/student/add', methods=['POST'])
 @login_required
 @admin_required
@@ -549,195 +514,113 @@ def admin_add_student():
     }
     
     students_table.put_item(Item=student)
+    logging.info(f"Admin added student {student_id}")
     flash(f'Student {student_id} added successfully', 'success')
     return redirect(url_for('admin_students'))
 
-@app.route('/admin/student/<student_id>/reset-password', methods=['POST'])
+@app.route('/admin/upload/students', methods=['POST'])
 @login_required
 @admin_required
-def admin_reset_student_password(student_id):
-    try:
-        # 新 password = 學生ID 入面嘅數字部分
-        new_password = student_id.replace('s', '')
-        
-        # Hash 新密碼
-        password_hash = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
-        
-        students_table.update_item(
-            Key={'studentId': student_id},
-            UpdateExpression='SET password_hash = :p',
-            ExpressionAttributeValues={':p': password_hash}
-        )
-        
-        return jsonify({'message': f'Password reset to {new_password}'})
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+def admin_upload_students():
+    if 'file' not in request.files:
+        flash('No file uploaded', 'error')
+        return redirect(url_for('admin_students'))
+    
+    file = request.files['file']
+    if file.filename == '':
+        flash('No file selected', 'error')
+        return redirect(url_for('admin_students'))
+    
+    if not file.filename.endswith('.csv'):
+        flash('Please upload a CSV file', 'error')
+        return redirect(url_for('admin_students'))
+    
+    # Read CSV file
+    stream = io.StringIO(file.stream.read().decode("UTF8"), newline=None)
+    csv_reader = csv.DictReader(stream)
+    
+    success_count = 0
+    error_count = 0
+    
+    for row in csv_reader:
+        try:
+            student_id = row['studentId']
+            name = row['name']
+            password = row.get('password', student_id.replace('s', ''))
+            
+            # Hash 密碼
+            password_hash = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+            
+            student = {
+                'studentId': student_id,
+                'name': name,
+                'password_hash': password_hash,
+                'enrolledCourses': []
+            }
+            
+            students_table.put_item(Item=student)
+            success_count += 1
+            
+        except Exception as e:
+            print(f"Error inserting student: {e}")
+            error_count += 1
+    
+    logging.info(f"Admin uploaded {success_count} students, {error_count} errors")
+    flash(f"Upload complete: {success_count} students added, {error_count} errors", 'success')
+    return redirect(url_for('admin_students'))
 
-@app.route('/admin/student/<student_id>/delete', methods=['POST'])
+@app.route('/admin/upload/courses', methods=['POST'])
 @login_required
 @admin_required
-def admin_delete_student(student_id):
-    try:
-        # 首先 delete 學生所有 enrollments
-        enrollments = enrollments_table.scan(
-            FilterExpression='studentId = :sid',
-            ExpressionAttributeValues={':sid': student_id}
-        ).get('Items', [])
-        
-        for enrollment in enrollments:
-            enrollments_table.delete_item(Key={'enrollmentId': enrollment['enrollmentId']})
-        
-        # 然後 delete 學生本身
-        students_table.delete_item(Key={'studentId': student_id})
-        
-        return jsonify({'message': 'Student deleted successfully'})
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-# ========== Student Change Password ==========
-@app.route('/student/change-password', methods=['GET', 'POST'])
-@login_required
-def student_change_password():
-    if session.get('role') != 'student':
+def admin_upload_courses():
+    if 'file' not in request.files:
+        flash('No file uploaded', 'error')
         return redirect(url_for('admin_courses'))
     
-    if request.method == 'POST':
-        current_password = request.form['current_password']
-        new_password = request.form['new_password']
-        confirm_password = request.form['confirm_password']
-        
-        if new_password != confirm_password:
-            flash('New password and confirm password do not match', 'error')
-            return redirect(url_for('student_change_password'))
-        
-        response = students_table.get_item(Key={'studentId': session['user_id']})
-        student = response.get('Item', {})
-        
-        stored_hash = student.get('password_hash')
-        
-        # 如果冇 hash，用舊方法 check
-        if not stored_hash:
-            old_password = student.get('password', session['user_id'].replace('s', ''))
-            if current_password != old_password:
-                flash('Current password is incorrect', 'error')
-                return redirect(url_for('student_change_password'))
-        else:
-            if not bcrypt.checkpw(current_password.encode('utf-8'), stored_hash.encode('utf-8')):
-                flash('Current password is incorrect', 'error')
-                return redirect(url_for('student_change_password'))
-        
-        # Hash 新密碼
-        new_password_hash = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
-        
-        students_table.update_item(
-            Key={'studentId': session['user_id']},
-            UpdateExpression='SET password_hash = :p',
-            ExpressionAttributeValues={':p': new_password_hash}
-        )
-        
-        flash('Password changed successfully', 'success')
-        return redirect(url_for('student_courses'))
+    file = request.files['file']
+    if file.filename == '':
+        flash('No file selected', 'error')
+        return redirect(url_for('admin_courses'))
     
-    return render_template('student/change_password.html', user=session)
-
-def enroll_course(student_id, course_id):
-    # 檢查課程是否存在
-    course_resp = courses_table.get_item(Key={'courseId': course_id})
-    if 'Item' not in course_resp:
-        return jsonify({'error': 'Course not found'}), 404
+    if not file.filename.endswith('.csv'):
+        flash('Please upload a CSV file', 'error')
+        return redirect(url_for('admin_courses'))
     
-    course = course_resp['Item']
+    # Read CSV file
+    stream = io.StringIO(file.stream.read().decode("UTF8"), newline=None)
+    csv_reader = csv.DictReader(stream)
     
-    # 檢查名額
-    if course['enrolled'] >= course['capacity']:
-        # 加入候補
-        waitlist = course.get('waitlist', [])
-        if student_id not in waitlist:
-            waitlist.append(student_id)
-            courses_table.update_item(
-                Key={'courseId': course_id},
-                UpdateExpression='SET waitlist = :w',
-                ExpressionAttributeValues={':w': waitlist}
-            )
-        return jsonify({'message': 'Course full, added to waitlist'})
+    success_count = 0
+    error_count = 0
     
-    # ===== 時間衝突檢查 =====
-    student_resp = students_table.get_item(Key={'studentId': student_id})
-    student = student_resp.get('Item', {})
-    enrolled_ids = student.get('enrolledCourses', [])
-    
-    # 拎新課程嘅時間
-    new_day = course.get('schedule', {}).get('day')
-    new_time = course.get('schedule', {}).get('time')
-    
-    # 如果新課程冇時間，就當冇衝突
-    if not new_day or not new_time:
-        return jsonify({'error': 'Course schedule not available'}), 400
-    
-    # 拆新課程嘅開始同結束時間
-    try:
-        new_start, new_end = new_time.split('-')
-    except:
-        return jsonify({'error': 'Invalid course time format'}), 400
-    
-    # Check 每一科已選課程
-    for cid in enrolled_ids:
-        c = courses_table.get_item(Key={'courseId': cid}).get('Item', {})
-        if not c:
-            continue
-            
-        old_day = c.get('schedule', {}).get('day')
-        old_time = c.get('schedule', {}).get('time')
-        
-        # 如果唔同日子，就冇衝突
-        if old_day != new_day:
-            continue
-            
-        if not old_time:
-            continue
-            
+    for row in csv_reader:
         try:
-            old_start, old_end = old_time.split('-')
-        except:
-            continue
-        
-        # 時間衝突檢查：
-        # 新課程 start < 舊課程 end  AND 新課程 end > 舊課程 start
-        if new_start < old_end and new_end > old_start:
-            return jsonify({'error': f'Schedule conflict with {c.get("courseId")} - {c.get("name")}'}), 400
+            course = {
+                'courseId': row['courseId'],
+                'name': row['name'],
+                'credits': int(row.get('credits', 3)),
+                'capacity': int(row.get('capacity', 50)),
+                'enrolled': 0,
+                'department': row.get('department', ''),
+                'instructor': row.get('instructor', ''),
+                'schedule': {
+                    'day': row.get('day', 'Mon'),
+                    'time': row.get('time', '09:00-12:00')
+                },
+                'waitlist': []
+            }
+            
+            courses_table.put_item(Item=course)
+            success_count += 1
+            
+        except Exception as e:
+            print(f"Error inserting course: {e}")
+            error_count += 1
     
-    # ===== 時間檢查完畢 =====
-    
-    # 加選
-    enrollment_id = str(uuid.uuid4())
-    enrollments_table.put_item(Item={
-        'enrollmentId': enrollment_id,
-        'studentId': student_id,
-        'courseId': course_id,
-        'timestamp': datetime.utcnow().isoformat(),
-        'status': 'enrolled'
-    })
-    
-    # 更新課程人數
-    courses_table.update_item(
-        Key={'courseId': course_id},
-        UpdateExpression='SET enrolled = enrolled + :inc',
-        ExpressionAttributeValues={':inc': 1}
-    )
-    
-    # 更新學生記錄
-    students_table.update_item(
-        Key={'studentId': student_id},
-        UpdateExpression='SET enrolledCourses = list_append(if_not_exists(enrolledCourses, :empty), :course)',
-        ExpressionAttributeValues={
-            ':course': [course_id],
-            ':empty': []
-        }
-    )
-    
-    return jsonify({'message': 'Enrollment successful'})
+    logging.info(f"Admin uploaded {success_count} courses, {error_count} errors")
+    flash(f"Upload complete: {success_count} courses added, {error_count} errors", 'success')
+    return redirect(url_for('admin_courses'))
 
-# ========== Bulk Delete Students ==========
 @app.route('/admin/students/bulk-delete', methods=['POST'])
 @login_required
 @admin_required
@@ -770,10 +653,134 @@ def admin_bulk_delete_students():
             print(f"Error deleting student {student_id}: {e}")
             error_count += 1
     
+    logging.info(f"Admin bulk deleted {success_count} students, {error_count} errors")
     flash(f"Successfully deleted {success_count} students" + (f", {error_count} failed" if error_count else ""), 'success')
     return redirect(url_for('admin_students'))
+
+@app.route('/admin/student/<student_id>/reset-password', methods=['POST'])
+@login_required
+@admin_required
+def admin_reset_student_password(student_id):
+    try:
+        # 新 password = 學生ID 入面嘅數字部分
+        new_password = student_id.replace('s', '')
+        
+        # Hash 新密碼
+        password_hash = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+        
+        students_table.update_item(
+            Key={'studentId': student_id},
+            UpdateExpression='SET password_hash = :p',
+            ExpressionAttributeValues={':p': password_hash}
+        )
+        
+        logging.info(f"Admin reset password for {student_id}")
+        return jsonify({'message': f'Password reset to {new_password}'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/admin/student/<student_id>/delete', methods=['POST'])
+@login_required
+@admin_required
+def admin_delete_student(student_id):
+    try:
+        # Delete all enrollments for this student
+        enrollments = enrollments_table.scan(
+            FilterExpression='studentId = :sid',
+            ExpressionAttributeValues={':sid': student_id}
+        ).get('Items', [])
+        
+        for enrollment in enrollments:
+            enrollments_table.delete_item(Key={'enrollmentId': enrollment['enrollmentId']})
+        
+        # Delete the student
+        students_table.delete_item(Key={'studentId': student_id})
+        
+        logging.info(f"Admin deleted student {student_id}")
+        return jsonify({'message': 'Student deleted successfully'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/admin/stats')
+@login_required
+@admin_required
+def admin_stats():
+    # 拎全部課程
+    response = courses_table.scan()
+    courses = response.get('Items', [])
     
-# ========== 統計 API（俾前端 chart.js 用）=========
+    # 按 courseId 排序
+    courses.sort(key=lambda x: x.get('courseId', ''))
+    
+    return render_template('admin/stats.html', user=session, courses=courses)
+
+# ========== Admin Change Password ==========
+@app.route('/admin/change-password', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def admin_change_password():
+    if request.method == 'POST':
+        current_password = request.form['current_password']
+        new_password = request.form['new_password']
+        confirm_password = request.form['confirm_password']
+        
+        if new_password != confirm_password:
+            flash('New password and confirm password do not match', 'error')
+            return redirect(url_for('admin_change_password'))
+        
+        # 拎 admin 資料
+        response = admins_table.get_item(Key={'adminId': 'admin1'})
+        admin = response.get('Item', {})
+        
+        # 如果 admin 未搬去 DynamoDB，就暫時用 hardcoded
+        if not admin:
+            # Hardcoded admin check (for backward compatibility)
+            if current_password != 'admin123':
+                flash('Current password is incorrect', 'error')
+                return redirect(url_for('admin_change_password'))
+            
+            # 第一次改密碼，將 admin 搬去 DynamoDB
+            new_password_hash = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+            admins_table.put_item(Item={
+                'adminId': 'admin1',
+                'name': 'Administrator',
+                'password_hash': new_password_hash
+            })
+            
+            logging.info(f"Admin changed password (first time)")
+            flash('Password changed successfully', 'success')
+            return redirect(url_for('admin_courses'))
+        
+        # 已經有 hash，用 bcrypt check
+        stored_hash = admin.get('password_hash')
+        if not stored_hash:
+            # 舊版 admin，用 plain text check
+            if current_password != admin.get('password', 'admin123'):
+                flash('Current password is incorrect', 'error')
+                return redirect(url_for('admin_change_password'))
+        else:
+            if not bcrypt.checkpw(current_password.encode('utf-8'), stored_hash.encode('utf-8')):
+                flash('Current password is incorrect', 'error')
+                return redirect(url_for('admin_change_password'))
+        
+        # Update 密碼
+        new_password_hash = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+        admins_table.update_item(
+            Key={'adminId': 'admin1'},
+            UpdateExpression='SET password_hash = :p, name = :n',
+            ExpressionAttributeValues={
+                ':p': new_password_hash,
+                ':n': 'Administrator'
+            }
+        )
+        
+        logging.info(f"Admin changed password")
+        flash('Password changed successfully', 'success')
+        return redirect(url_for('admin_courses'))
+    
+    return render_template('admin/change_password.html', user=session)
+
+# ========== 統計 API ==========
 @app.route('/api/stats/enrollment-by-dept')
 @login_required
 @admin_required
