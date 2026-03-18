@@ -575,6 +575,11 @@ def admin_students():
     response = students_table.scan()
     students = response.get('Items', [])
     
+    # 為每個學生計 enrolled_count
+    for student in students:
+        enrolled_ids = student.get('enrolledCourses', [])
+        student['enrolled_count'] = len(enrolled_ids)
+    
     return render_template('admin/students.html', students=students, user=session)
 
 @app.route('/admin/student/add', methods=['POST'])
