@@ -470,10 +470,13 @@ def admin_update_course_capacity(course_id):
             flash(f'Cannot set capacity below current enrolled students ({current_enrolled})', 'error')
             return redirect(url_for('admin_courses'))
         
-        # Update capacity
+        # Update capacity - FIXED VERSION
         courses_table.update_item(
             Key={'courseId': course_id},
-            UpdateExpression='SET capacity = :c',
+            UpdateExpression='SET #cap = :c',
+            ExpressionAttributeNames={
+                '#cap': 'capacity'
+            },
             ExpressionAttributeValues={':c': new_capacity}
         )
         
