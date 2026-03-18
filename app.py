@@ -485,6 +485,38 @@ def admin_update_course_capacity(course_id):
     
     return redirect(url_for('admin_courses'))
 
+@app.route('/admin/courses/bulk-delete', methods=['POST'])
+@login_required
+@admin_required
+def admin_bulk_delete_courses():
+    course_ids = request.form.getlist('course_ids')
+    
+    if not course_ids:
+        flash('No courses selected', 'error')
+        return redirect(url_for('admin_courses'))
+    
+    success_count = 0
+    error_count = 0
+    
+    for course_id in course_ids:
+        try:
+            # Check if course has enrolled students
+            course = courses_table.get_item(Key={'courseId': course_id}).get('Item', {})
+            if course.get('enrolled', 0) > 0:
+                error_count += 1
+                continue
+            
+            # Delete the course
+            courses_table.delete_item(Key={'courseId': course_id})
+            success_count += 1
+            
+        except Exception as e:
+            print(f"Error deleting course {course_id}: {e}")
+            error_count += 1
+    
+    flash(f"Successfully deleted {success_count} courses" + (f", {error_count} skipped (has enrolled students)" if error_count else ""), 'success')
+    return redirect(url_for('admin_courses'))
+
 @app.route('/api/course/<course_id>/students', methods=['GET'])
 @login_required
 @admin_required
