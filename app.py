@@ -52,7 +52,7 @@ def login():
         user_id = request.form['user_id']
         password = request.form['password']
         
-        # Admin login
+        # Admin login (special case - 可以之後都改用 hash)
         if user_id == 'admin' and password == 'admin123':
             session['user_id'] = 'admin1'
             session['user_name'] = 'Administrator'
@@ -61,21 +61,38 @@ def login():
         
         # Student login
         elif user_id.startswith('s'):
-            # 檢查學生是否存在
             response = students_table.get_item(Key={'studentId': user_id})
             if 'Item' in response:
                 student = response['Item']
-                # Check password
-                stored_password = student.get('password', user_id)  # 如果冇 password field，用 studentId 做 default
-                if password == stored_password:
-                    session['user_id'] = user_id
-                    session['user_name'] = student.get('name', f'Student {user_id}')
-                    session['role'] = 'student'
-                    return redirect(url_for('student_courses'))
+                
+                # Check 有冇 password_hash field
+                stored_hash = student.get('password_hash')
+                
+                # 如果冇 hash，即係舊學生，用 plain text password check
+                if not stored_hash:
+                    # 用舊方法 check password (向後兼容)
+                    old_password = student.get('password', user_id.replace('s', ''))
+                    if password == old_password:
+                        # 成功 login，即時 migrate 去 hash
+                        new_hash = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+                        students_table.update_item(
+                            Key={'studentId': user_id},
+                            UpdateExpression='SET password_hash = :h REMOVE password',
+                            ExpressionAttributeValues={':h': new_hash}
+                        )
+                        session['user_id'] = user_id
+                        session['user_name'] = student.get('name', f'Student {user_id}')
+                        session['role'] = 'student'
+                        return redirect(url_for('student_courses'))
                 else:
-                    return render_template('login.html', error='Invalid password')
-            else:
-                return render_template('login.html', error='Student not found')
+                    # 有 hash，用 bcrypt check
+                    if bcrypt.checkpw(password.encode('utf-8'), stored_hash.encode('utf-8')):
+                        session['user_id'] = user_id
+                        session['user_name'] = student.get('name', f'Student {user_id}')
+                        session['role'] = 'student'
+                        return redirect(url_for('student_courses'))
+            
+            return render_template('login.html', error='Invalid credentials')
         
         return render_template('login.html', error='Invalid credentials')
     
