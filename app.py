@@ -466,6 +466,47 @@ def admin_update_course_capacity(course_id):
     
     return redirect(url_for('admin_courses'))
 
+@app.route('/api/course/<course_id>/students', methods=['GET'])
+@login_required
+@admin_required
+def api_course_students(course_id):
+    try:
+        # 拎課程資料
+        course_resp = courses_table.get_item(Key={'courseId': course_id})
+        course = course_resp.get('Item', {})
+        
+        if not course:
+            return jsonify({'error': 'Course not found'}), 404
+        
+        # 搵所有報讀呢個課程嘅學生
+        # 方法1：從 Enrollments table 搵
+        enrollments = enrollments_table.scan(
+            FilterExpression='courseId = :cid',
+            ExpressionAttributeValues={':cid': course_id}
+        ).get('Items', [])
+        
+        students = []
+        for enrollment in enrollments:
+            student_id = enrollment['studentId']
+            student = students_table.get_item(Key={'studentId': student_id}).get('Item', {})
+            if student:
+                students.append({
+                    'studentId': student_id,
+                    'name': student.get('name', 'Unknown'),
+                    'enrolledDate': enrollment.get('timestamp', 'N/A').split('T')[0] if enrollment.get('timestamp') else 'N/A'
+                })
+        
+        return jsonify({
+            'courseId': course_id,
+            'courseName': course.get('name', ''),
+            'enrolled': course.get('enrolled', 0),
+            'capacity': course.get('capacity', 0),
+            'students': students
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/admin/courses/delete/<course_id>')
 @login_required
 @admin_required
