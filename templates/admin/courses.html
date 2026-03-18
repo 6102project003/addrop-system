@@ -114,6 +114,7 @@
                 <button onclick="editCapacity('{{ course.courseId }}')" style="margin-left: 5px; padding: 2px 8px; background-color: #f39c12; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.8rem;">Edit</button>
             </td>
             <td style="padding: 1rem; border-bottom: 1px solid #ecf0f1;">
+                <button type="button" onclick="viewStudents('{{ course.courseId }}')" style="padding: 0.3rem 1rem; background-color: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer; margin-right: 0.3rem;">View Students</button>
                 <a href="{{ url_for('admin_delete_course', course_id=course.courseId) }}" 
                    style="padding: 0.3rem 1rem; background-color: #e74c3c; color: white; text-decoration: none; border-radius: 4px; display: inline-block;"
                    onclick="return confirm('Are you sure you want to delete this course?')">Delete</a>
@@ -149,6 +150,27 @@
                 <button type="submit" style="padding: 8px 16px; background-color: #27ae60; color: white; border: none; border-radius: 4px; cursor: pointer;">Save Changes</button>
             </div>
         </form>
+    </div>
+</div>
+
+<!-- View Students Modal (hidden by default) -->
+<div id="viewStudentsModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 1000;">
+    <div style="background: white; width: 700px; margin: 100px auto; padding: 30px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.2); max-height: 70vh; overflow-y: auto;">
+        <h3 style="margin-bottom: 20px; color: #2c3e50;">Enrolled Students</h3>
+        <div id="courseInfo" style="margin-bottom: 20px; padding: 10px; background-color: #f8f9fa; border-radius: 4px;">
+            <p><strong>Course ID:</strong> <span id="modalCourseId"></span></p>
+            <p><strong>Course Name:</strong> <span id="modalCourseName"></span></p>
+            <p><strong>Enrolled:</strong> <span id="modalEnrolledCount"></span> / <span id="modalCapacity"></span></p>
+        </div>
+        
+        <div id="studentsList" style="margin-bottom: 20px;">
+            <!-- Students will be loaded here -->
+            <p style="text-align: center; color: #666;">Loading students...</p>
+        </div>
+        
+        <div style="display: flex; gap: 10px; justify-content: flex-end;">
+            <button type="button" onclick="closeViewModal()" style="padding: 8px 16px; background-color: #95a5a6; color: white; border: none; border-radius: 4px; cursor: pointer;">Close</button>
+        </div>
     </div>
 </div>
 
@@ -199,11 +221,65 @@ function closeModal() {
     document.getElementById('editModal').style.display = 'none';
 }
 
-// Close modal when clicking outside
+// View Students functions
+function viewStudents(courseId) {
+    // Show modal
+    document.getElementById('viewStudentsModal').style.display = 'block';
+    document.getElementById('modalCourseId').innerText = courseId;
+    
+    // Fetch course details and enrolled students
+    fetch('/api/course/' + courseId + '/students')
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('modalCourseName').innerText = data.courseName || 'Unknown';
+            document.getElementById('modalEnrolledCount').innerText = data.enrolled || 0;
+            document.getElementById('modalCapacity').innerText = data.capacity || 0;
+            
+            const studentsList = document.getElementById('studentsList');
+            
+            if (data.students && data.students.length > 0) {
+                let html = '<table style="width: 100%; border-collapse: collapse;">';
+                html += '<thead><tr style="background-color: #34495e; color: white;">';
+                html += '<th style="padding: 8px; text-align: left;">Student ID</th>';
+                html += '<th style="padding: 8px; text-align: left;">Name</th>';
+                html += '<th style="padding: 8px; text-align: left;">Enrolled Date</th>';
+                html += '</tr></thead><tbody>';
+                
+                data.students.forEach(student => {
+                    html += '<tr style="border-bottom: 1px solid #ecf0f1;">';
+                    html += `<td style="padding: 8px;">${student.studentId}</td>`;
+                    html += `<td style="padding: 8px;">${student.name}</td>`;
+                    html += `<td style="padding: 8px;">${student.enrolledDate || 'N/A'}</td>`;
+                    html += '</tr>';
+                });
+                
+                html += '</tbody></table>';
+                studentsList.innerHTML = html;
+            } else {
+                studentsList.innerHTML = '<p style="text-align: center; color: #666;">No students enrolled in this course.</p>';
+            }
+        })
+        .catch(error => {
+            document.getElementById('studentsList').innerHTML = '<p style="text-align: center; color: #e74c3c;">Error loading students.</p>';
+            console.error('Error:', error);
+        });
+}
+
+function closeViewModal() {
+    document.getElementById('viewStudentsModal').style.display = 'none';
+    document.getElementById('studentsList').innerHTML = '<p style="text-align: center; color: #666;">Loading students...</p>';
+}
+
+// Close modals when clicking outside
 window.onclick = function(event) {
-    const modal = document.getElementById('editModal');
-    if (event.target == modal) {
-        modal.style.display = 'none';
+    const editModal = document.getElementById('editModal');
+    const viewModal = document.getElementById('viewStudentsModal');
+    
+    if (event.target == editModal) {
+        editModal.style.display = 'none';
+    }
+    if (event.target == viewModal) {
+        closeViewModal();
     }
 }
 </script>
