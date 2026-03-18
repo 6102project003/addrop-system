@@ -84,6 +84,7 @@
                 </th>
                 <th style="background-color: #34495e; color: white; padding: 1rem; text-align: left;">Student ID</th>
                 <th style="background-color: #34495e; color: white; padding: 1rem; text-align: left;">Name</th>
+                <th style="background-color: #34495e; color: white; padding: 1rem; text-align: left;">Enrolled</th>
                 <th style="background-color: #34495e; color: white; padding: 1rem; text-align: left;">Password</th>
                 <th style="background-color: #34495e; color: white; padding: 1rem; text-align: left;">Actions</th>
             </tr>
@@ -96,6 +97,16 @@
                 </td>
                 <td style="padding: 1rem; border-bottom: 1px solid #ecf0f1;">{{ student.studentId }}</td>
                 <td style="padding: 1rem; border-bottom: 1px solid #ecf0f1;">{{ student.name }}</td>
+                <td style="padding: 1rem; border-bottom: 1px solid #ecf0f1;">
+                    <span style="background-color: {% if student.enrolled_count > 0 %}#27ae60{% else %}#95a5a6{% endif %}; 
+                                 color: white; 
+                                 padding: 4px 10px; 
+                                 border-radius: 20px; 
+                                 font-size: 0.9rem;
+                                 font-weight: 500;">
+                        {{ student.enrolled_count }} course{% if student.enrolled_count != 1 %}s{% endif %}
+                    </span>
+                </td>
                 <td style="padding: 1rem; border-bottom: 1px solid #ecf0f1;">••••••••</td>
                 <td style="padding: 1rem; border-bottom: 1px solid #ecf0f1;">
                     <button type="button" onclick="viewCourses('{{ student.studentId }}')" style="padding: 0.3rem 1rem; background-color: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer; margin-right: 0.3rem;">View Courses</button>
@@ -116,6 +127,7 @@
         <div id="studentInfo" style="margin-bottom: 20px; padding: 10px; background-color: #f8f9fa; border-radius: 4px;">
             <p><strong>Student ID:</strong> <span id="modalStudentId"></span></p>
             <p><strong>Name:</strong> <span id="modalStudentName"></span></p>
+            <p><strong>Total Enrolled:</strong> <span id="modalEnrolledCount"></span></p>
         </div>
         
         <div id="coursesList" style="margin-bottom: 20px;">
@@ -273,6 +285,7 @@ function viewCourses(studentId) {
         .then(response => response.json())
         .then(data => {
             document.getElementById('modalStudentName').innerText = data.name || 'Unknown';
+            document.getElementById('modalEnrolledCount').innerText = data.courses ? data.courses.length : 0;
             
             const coursesList = document.getElementById('coursesList');
             
