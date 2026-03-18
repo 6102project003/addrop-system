@@ -20,7 +20,7 @@
                 <th style="padding: 15px; text-align: left;">Course ID</th>
                 <th style="padding: 15px; text-align: left;">Course Name</th>
                 <th style="padding: 15px; text-align: left;">Instructor</th>
-                <th style="padding: 15px; text-align: left;">Room</th>
+                <th style="padding: 15px; text-align: left;">Location</th>
             </tr>
         </thead>
         <tbody>
@@ -37,7 +37,7 @@
                 <td style="padding: 15px; font-weight: 500; color: #2c3e50;">{{ course.courseId }}</td>
                 <td style="padding: 15px;">{{ course.name }}</td>
                 <td style="padding: 15px; color: #555;">{{ course.instructor or 'TBA' }}</td>
-                <td style="padding: 15px; color: #555;">{{ course.schedule.room or 'TBA' }}</td>
+                <td style="padding: 15px; color: #555;">{{ course.location or 'TBA' }}</td>
             </tr>
             {% endfor %}
         </tbody>
@@ -129,7 +129,7 @@
                                                         padding: 4px;">
                                                 <strong>{{ course.courseId }}</strong><br>
                                                 <small>{{ course.schedule.time }}</small><br>
-                                                <small style="font-size: 0.7rem; opacity: 0.8;">{{ course.schedule.room or 'TBA' }}</small>
+                                                <small style="font-size: 0.7rem; opacity: 0.8;">{{ course.location or 'TBA' }}</small>
                                             </div>
                                         {% endif %}
                                     {% endif %}
