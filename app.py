@@ -364,6 +364,9 @@ def admin_stats():
     response = courses_table.scan()
     courses = response.get('Items', [])
     
+    # 按 courseId 排序
+    courses.sort(key=lambda x: x.get('courseId', ''))
+    
     return render_template('admin/stats.html', user=session, courses=courses)
 
 @app.route('/admin/students')
