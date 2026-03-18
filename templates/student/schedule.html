@@ -44,9 +44,9 @@
     </table>
 </div>
 
-<!-- Timetable (朝九晚十) -->
+<!-- Timetable -->
 <div style="background: white; border-radius: 8px; padding: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-    <h3 style="margin-bottom: 20px; color: #2c3e50;">📅 Timetable </h3>
+    <h3 style="margin-bottom: 20px; color: #2c3e50;">📅 Timetable</h3>
     
     <div style="overflow-x: auto;">
         <table style="width: 100%; border-collapse: collapse; background: white; table-layout: fixed;">
@@ -95,31 +95,43 @@
                                     {% set start_time = course.schedule.time.split('-')[0] %}
                                     {% set end_time = course.schedule.time.split('-')[1] %}
                                     
-                                    {# 只顯示第二格 (start_time + 1 小時) #}
-                                    {% set start_hour = start_time.split(':')[0]|int %}
-                                    {% set current_hour = slot.split(':')[0]|int %}
-                                    
-                                    {% if slot >= start_time and slot < end_time and current_hour == start_hour + 1 %}
+                                    {# 所有時間格都有顏色 #}
+                                    {% if slot >= start_time and slot < end_time %}
                                         {% set course_index = loop.index0 %}
+                                        {% set start_hour = start_time.split(':')[0]|int %}
+                                        {% set current_hour = slot.split(':')[0]|int %}
+                                        
                                         <div style="background-color: {{ colors[course_index % 10] }}; 
-                                                    color: #2c3e50; 
                                                     width: 100%;
                                                     height: 80px;
-                                                    display: flex;
-                                                    flex-direction: column;
-                                                    justify-content: center;
-                                                    align-items: center;
-                                                    font-size: 0.85rem;
-                                                    font-weight: 500;
+                                                    position: absolute;
+                                                    top: 0;
+                                                    left: 0;
                                                     border-left: 3px solid {{ colors[course_index % 10].replace('0.5', '1') }};
-                                                    box-sizing: border-box;
-                                                    text-align: center;
-                                                    line-height: 1.3;
-                                                    padding: 4px;">
-                                            <strong>{{ course.courseId }}</strong><br>
-                                            <small>{{ course.schedule.time }}</small><br>
-                                            <small style="font-size: 0.7rem; opacity: 0.8;">{{ course.schedule.room or 'TBA' }}</small>
+                                                    box-sizing: border-box;">
                                         </div>
+                                        
+                                        {# 淨係第二格顯示文字 #}
+                                        {% if current_hour == start_hour + 1 %}
+                                            <div style="position: relative;
+                                                        z-index: 1;
+                                                        color: #2c3e50; 
+                                                        width: 100%;
+                                                        height: 80px;
+                                                        display: flex;
+                                                        flex-direction: column;
+                                                        justify-content: center;
+                                                        align-items: center;
+                                                        font-size: 0.85rem;
+                                                        font-weight: 500;
+                                                        text-align: center;
+                                                        line-height: 1.3;
+                                                        padding: 4px;">
+                                                <strong>{{ course.courseId }}</strong><br>
+                                                <small>{{ course.schedule.time }}</small><br>
+                                                <small style="font-size: 0.7rem; opacity: 0.8;">{{ course.schedule.room or 'TBA' }}</small>
+                                            </div>
+                                        {% endif %}
                                     {% endif %}
                                 {% endif %}
                             {% endfor %}
