@@ -58,33 +58,39 @@ def login():
         user_id = request.form['user_id']
         password = request.form['password']
         
-        # Admin login - 改用 DynamoDB check
+        # Admin login - 統一用 admin / admin123
         if user_id == 'admin':
-            response = admins_table.get_item(Key={'adminId': 'admin1'})
+            # Check if admin exists
+            response = admins_table.get_item(Key={'adminId': 'admin'})
             admin = response.get('Item', {})
             
             if admin:
+                # Admin exists - check hash
                 stored_hash = admin.get('password_hash')
                 if stored_hash and bcrypt.checkpw(password.encode('utf-8'), stored_hash.encode('utf-8')):
-                    session['user_id'] = 'admin1'
+                    session['user_id'] = 'admin'
                     session['user_name'] = admin.get('name', 'Administrator')
                     session['role'] = 'admin'
                     logging.info(f"Admin logged in")
                     return redirect(url_for('admin_courses'))
+                else:
+                    return render_template('login.html', error='Invalid password')
             else:
-                # 第一次 login，用 hardcoded admin123 創建 admin record
+                # First time login - create admin with hash
                 if password == 'admin123':
                     password_hash = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
                     admins_table.put_item(Item={
-                        'adminId': 'admin1',
+                        'adminId': 'admin',
                         'name': 'Administrator',
                         'password_hash': password_hash
                     })
-                    session['user_id'] = 'admin1'
+                    session['user_id'] = 'admin'
                     session['user_name'] = 'Administrator'
                     session['role'] = 'admin'
                     logging.info(f"Admin logged in (first time)")
                     return redirect(url_for('admin_courses'))
+                else:
+                    return render_template('login.html', error='Invalid credentials')
         
         # Student login
         elif user_id.startswith('s'):
@@ -92,15 +98,11 @@ def login():
             if 'Item' in response:
                 student = response['Item']
                 
-                # Check 有冇 password_hash field
                 stored_hash = student.get('password_hash')
                 
-                # 如果冇 hash，即係舊學生，用 plain text password check
                 if not stored_hash:
-                    # 用舊方法 check password (向後兼容)
                     old_password = student.get('password', user_id.replace('s', ''))
                     if password == old_password:
-                        # 成功 login，即時 migrate 去 hash
                         new_hash = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
                         students_table.update_item(
                             Key={'studentId': user_id},
@@ -110,15 +112,12 @@ def login():
                         session['user_id'] = user_id
                         session['user_name'] = student.get('name', f'Student {user_id}')
                         session['role'] = 'student'
-                        logging.info(f"Student {user_id} logged in (migrated to hash)")
                         return redirect(url_for('student_courses'))
                 else:
-                    # 有 hash，用 bcrypt check
                     if bcrypt.checkpw(password.encode('utf-8'), stored_hash.encode('utf-8')):
                         session['user_id'] = user_id
                         session['user_name'] = student.get('name', f'Student {user_id}')
                         session['role'] = 'student'
-                        logging.info(f"Student {user_id} logged in")
                         return redirect(url_for('student_courses'))
             
             return render_template('login.html', error='Invalid credentials')
@@ -126,7 +125,7 @@ def login():
         return render_template('login.html', error='Invalid credentials')
     
     return render_template('login.html')
-
+    
 @app.route('/logout')
 def logout():
     session.clear()
