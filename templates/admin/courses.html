@@ -16,7 +16,7 @@
                 <button type="submit" style="margin-top: 10px; padding: 8px 16px; background-color: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer;">Upload Courses</button>
             </form>
             <p style="font-size: 0.9rem; color: #666; margin-top: 10px;">
-                CSV format: courseId,name,credits,capacity,department,instructor,day,time
+                CSV format: courseId,name,credits,capacity,department,instructor,location,day,time
             </p>
         </div>
     </div>
@@ -62,6 +62,10 @@
             <input type="text" name="instructor">
         </div>
         <div>
+            <label>Location/Room:</label>
+            <input type="text" name="location" value="TBA" placeholder="e.g. Room 101">
+        </div>
+        <div>
             <label>Day:</label>
             <select name="schedule_day">
                 <option value="Mon">Monday</option>
@@ -88,6 +92,8 @@
             <th style="background-color: #34495e; color: white; padding: 1rem; text-align: left;">Name</th>
             <th style="background-color: #34495e; color: white; padding: 1rem; text-align: left;">Dept</th>
             <th style="background-color: #34495e; color: white; padding: 1rem; text-align: left;">Credits</th>
+            <th style="background-color: #34495e; color: white; padding: 1rem; text-align: left;">Instructor</th>
+            <th style="background-color: #34495e; color: white; padding: 1rem; text-align: left;">Location</th>
             <th style="background-color: #34495e; color: white; padding: 1rem; text-align: left;">Enrolled</th>
             <th style="background-color: #34495e; color: white; padding: 1rem; text-align: left;">Capacity</th>
             <th style="background-color: #34495e; color: white; padding: 1rem; text-align: left;">Actions</th>
@@ -100,6 +106,8 @@
             <td style="padding: 1rem; border-bottom: 1px solid #ecf0f1;">{{ course.name }}</td>
             <td style="padding: 1rem; border-bottom: 1px solid #ecf0f1;">{{ course.department }}</td>
             <td style="padding: 1rem; border-bottom: 1px solid #ecf0f1;">{{ course.credits }}</td>
+            <td style="padding: 1rem; border-bottom: 1px solid #ecf0f1;">{{ course.instructor or 'TBA' }}</td>
+            <td style="padding: 1rem; border-bottom: 1px solid #ecf0f1;">{{ course.location or 'TBA' }}</td>
             <td style="padding: 1rem; border-bottom: 1px solid #ecf0f1;">{{ course.enrolled }}</td>
             <td style="padding: 1rem; border-bottom: 1px solid #ecf0f1;">
                 <span id="capacity-{{ course.courseId }}">{{ course.capacity }}</span>
@@ -151,10 +159,10 @@ function toggleForm() {
 }
 
 function downloadSampleCourses() {
-    const content = "courseId,name,credits,capacity,department,instructor,day,time\n" +
-                    "COMP1234,Cloud Computing,3,50,Computing,Dr. Chan,Mon,09:00-12:00\n" +
-                    "COMP2345,Database Systems,3,40,Computing,Prof. Wong,Wed,14:00-17:00\n" +
-                    "COMP3456,Network Security,3,45,Computing,Dr. Lee,Tue,10:00-13:00";
+    const content = "courseId,name,credits,capacity,department,instructor,location,day,time\n" +
+                    "COMP1234,Cloud Computing,3,50,Computing,Dr. Chan,Room 101,Mon,09:00-12:00\n" +
+                    "COMP2345,Database Systems,3,40,Computing,Prof. Wong,Room 202,Wed,14:00-17:00\n" +
+                    "COMP3456,Network Security,3,45,Computing,Dr. Lee,Room 305,Tue,10:00-13:00";
     
     const blob = new Blob([content], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);
@@ -171,8 +179,8 @@ function editCapacity(courseId) {
     const row = event.target.closest('tr');
     const cells = row.getElementsByTagName('td');
     const courseName = cells[1].innerText;
-    const enrolled = cells[4].innerText;
-    const currentCapacity = cells[5].innerText.split('Edit')[0].trim();
+    const enrolled = cells[6].innerText;
+    const currentCapacity = cells[7].innerText.split('Edit')[0].trim();
     
     // Fill modal
     document.getElementById('editCourseId').value = courseId;
