@@ -604,6 +604,7 @@ def admin_upload_courses():
                 'enrolled': 0,
                 'department': row.get('department', ''),
                 'instructor': row.get('instructor', ''),
+                'location': row.get('location', 'TBA'),  # 加呢行
                 'schedule': {
                     'day': row.get('day', 'Mon'),
                     'time': row.get('time', '09:00-12:00')
