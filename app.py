@@ -909,56 +909,32 @@ def admin_change_password():
             flash('New password and confirm password do not match', 'error')
             return redirect(url_for('admin_change_password'))
         
-        # 拎 admin 資料
-        response = admins_table.get_item(Key={'adminId': 'admin1'})
+        # Get admin record
+        response = admins_table.get_item(Key={'adminId': 'admin'})
         admin = response.get('Item', {})
         
-        # 如果 admin 未搬去 DynamoDB，就暫時用 hardcoded
         if not admin:
-            # Hardcoded admin check (for backward compatibility)
-            if current_password != 'admin123':
-                flash('Current password is incorrect', 'error')
-                return redirect(url_for('admin_change_password'))
-            
-            # 第一次改密碼，將 admin 搬去 DynamoDB
-            new_password_hash = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
-            admins_table.put_item(Item={
-                'adminId': 'admin1',
-                'name': 'Administrator',
-                'password_hash': new_password_hash
-            })
-            
-            logging.info(f"Admin changed password (first time)")
-            flash('Password changed successfully', 'success')
-            return redirect(url_for('admin_courses'))
+            flash('Admin not found', 'error')
+            return redirect(url_for('admin_change_password'))
         
-        # 已經有 hash，用 bcrypt check
+        # Check current password
         stored_hash = admin.get('password_hash')
-        if not stored_hash:
-            # 舊版 admin，用 plain text check
-            if current_password != admin.get('password', 'admin123'):
-                flash('Current password is incorrect', 'error')
-                return redirect(url_for('admin_change_password'))
-        else:
-            if not bcrypt.checkpw(current_password.encode('utf-8'), stored_hash.encode('utf-8')):
-                flash('Current password is incorrect', 'error')
-                return redirect(url_for('admin_change_password'))
+        if not stored_hash or not bcrypt.checkpw(current_password.encode('utf-8'), stored_hash.encode('utf-8')):
+            flash('Current password is incorrect', 'error')
+            return redirect(url_for('admin_change_password'))
         
-        # Update 密碼
+        # Update to new password
         new_password_hash = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
         admins_table.update_item(
-            Key={'adminId': 'admin1'},
+            Key={'adminId': 'admin'},
             UpdateExpression='SET password_hash = :p, #n = :name_val',
-            ExpressionAttributeNames={
-                '#n': 'name'
-            },
+            ExpressionAttributeNames={'#n': 'name'},
             ExpressionAttributeValues={
                 ':p': new_password_hash,
                 ':name_val': 'Administrator'
             }
         )
         
-        logging.info(f"Admin changed password")
         flash('Password changed successfully', 'success')
         return redirect(url_for('admin_courses'))
     
