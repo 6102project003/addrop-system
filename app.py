@@ -574,26 +574,33 @@ def student_change_password():
         new_password = request.form['new_password']
         confirm_password = request.form['confirm_password']
         
-        # 檢查新密碼同確認密碼係咪一樣
         if new_password != confirm_password:
             flash('New password and confirm password do not match', 'error')
             return redirect(url_for('student_change_password'))
         
-        # 拎學生資料
         response = students_table.get_item(Key={'studentId': session['user_id']})
         student = response.get('Item', {})
         
-        # 檢查舊密碼
-        stored_password = student.get('password', session['user_id'].replace('s', ''))
-        if current_password != stored_password:
-            flash('Current password is incorrect', 'error')
-            return redirect(url_for('student_change_password'))
+        stored_hash = student.get('password_hash')
         
-        # 更新密碼
+        # 如果冇 hash，用舊方法 check
+        if not stored_hash:
+            old_password = student.get('password', session['user_id'].replace('s', ''))
+            if current_password != old_password:
+                flash('Current password is incorrect', 'error')
+                return redirect(url_for('student_change_password'))
+        else:
+            if not bcrypt.checkpw(current_password.encode('utf-8'), stored_hash.encode('utf-8')):
+                flash('Current password is incorrect', 'error')
+                return redirect(url_for('student_change_password'))
+        
+        # Hash 新密碼
+        new_password_hash = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+        
         students_table.update_item(
             Key={'studentId': session['user_id']},
-            UpdateExpression='SET password = :p',
-            ExpressionAttributeValues={':p': new_password}
+            UpdateExpression='SET password_hash = :p',
+            ExpressionAttributeValues={':p': new_password_hash}
         )
         
         flash('Password changed successfully', 'success')
