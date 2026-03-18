@@ -705,6 +705,97 @@ def enroll_course(student_id, course_id):
     
     return jsonify({'message': 'Enrollment successful'})
 
+# ========== Bulk Delete Students ==========
+@app.route('/admin/students/bulk-delete', methods=['POST'])
+@login_required
+@admin_required
+def admin_bulk_delete_students():
+    student_ids_text = request.form['student_ids']
+    student_ids = [sid.strip() for sid in student_ids_text.split('\n') if sid.strip()]
+    
+    success_count = 0
+    error_count = 0
+    errors = []
+    
+    for student_id in student_ids:
+        try:
+            # Delete all enrollments for this student
+            enrollments = enrollments_table.scan(
+                FilterExpression='studentId = :sid',
+                ExpressionAttributeValues={':sid': student_id}
+            ).get('Items', [])
+            
+            for enrollment in enrollments:
+                enrollments_table.delete_item(Key={'enrollmentId': enrollment['enrollmentId']})
+            
+            # Delete the student
+            students_table.delete_item(Key={'studentId': student_id})
+            success_count += 1
+            
+        except Exception as e:
+            error_count += 1
+            errors.append(f"{student_id}: {str(e)}")
+    
+    if errors:
+        flash(f"Deleted {success_count} students. Errors: {', '.join(errors)}", 'warning')
+    else:
+        flash(f"Successfully deleted {success_count} students", 'success')
+    
+    return redirect(url_for('admin_students'))
+
+@app.route('/admin/students/bulk-delete-csv', methods=['POST'])
+@login_required
+@admin_required
+def admin_bulk_delete_students_csv():
+    if 'file' not in request.files:
+        flash('No file uploaded', 'error')
+        return redirect(url_for('admin_students'))
+    
+    file = request.files['file']
+    if file.filename == '':
+        flash('No file selected', 'error')
+        return redirect(url_for('admin_students'))
+    
+    if not file.filename.endswith('.csv'):
+        flash('Please upload a CSV file', 'error')
+        return redirect(url_for('admin_students'))
+    
+    # Read CSV file
+    stream = io.StringIO(file.stream.read().decode("UTF8"), newline=None)
+    csv_reader = csv.DictReader(stream)
+    
+    success_count = 0
+    error_count = 0
+    errors = []
+    
+    for row in csv_reader:
+        try:
+            student_id = row['studentId']
+            
+            # Delete all enrollments
+            enrollments = enrollments_table.scan(
+                FilterExpression='studentId = :sid',
+                ExpressionAttributeValues={':sid': student_id}
+            ).get('Items', [])
+            
+            for enrollment in enrollments:
+                enrollments_table.delete_item(Key={'enrollmentId': enrollment['enrollmentId']})
+            
+            # Delete student
+            students_table.delete_item(Key={'studentId': student_id})
+            success_count += 1
+            
+        except Exception as e:
+            error_count += 1
+            errors.append(f"{row.get('studentId', 'unknown')}: {str(e)}")
+    
+    if errors:
+        flash(f"Deleted {success_count} students. Errors: {', '.join(errors)}", 'warning')
+    else:
+        flash(f"Successfully deleted {success_count} students", 'success')
+    
+    return redirect(url_for('admin_students'))
+
 # ========== 統計 API（俾前端 chart.js 用）=========
 @app.route('/api/stats/enrollment-by-dept')
 @login_required
