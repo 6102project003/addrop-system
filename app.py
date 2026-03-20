@@ -1190,6 +1190,101 @@ def admin_recover():
     
     return redirect(url_for('admin_semester_reset'))
 
+# ========== Free AI Chatbot (Hugging Face) ==========
+HF_API_TOKEN = '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'  # 貼你嘅 token
+HF_MODEL = 'microsoft/DialoGPT-small'  # 免費模型
+
+@app.route('/api/chat', methods=['POST'])
+@login_required
+def api_chat():
+    if session.get('role') != 'student':
+        return jsonify({'error': 'Unauthorized'}), 403
+    
+    data = request.get_json()
+    user_message = data.get('message', '')
+    
+    if not user_message:
+        return jsonify({'error': 'No message provided'}), 400
+    
+    # 拎學生已選課程做 context
+    student_resp = students_table.get_item(Key={'studentId': session['user_id']})
+    student = student_resp.get('Item', {})
+    enrolled_ids = student.get('enrolledCourses', [])
+    
+    courses = []
+    for cid in enrolled_ids:
+        course = courses_table.get_item(Key={'courseId': cid}).get('Item', {})
+        if course:
+            courses.append(f"{course['name']} ({course['courseId']})")
+    
+    enrolled_text = "You are currently enrolled in: " + ", ".join(courses) if courses else "You are not enrolled in any courses yet."
+    
+    # 構建 prompt
+    prompt = f"""You are a helpful academic advisor. 
+The student is asking: {user_message}
+{enrolled_text}
+Please give a friendly, helpful response about course recommendations. Keep it short and simple."""
+
+    try:
+        # Call Hugging Face Inference API
+        headers = {
+            'Authorization': f'Bearer {HF_API_TOKEN}',
+            'Content-Type': 'application/json'
+        }
+        
+        payload = {
+            'inputs': prompt,
+            'parameters': {
+                'max_new_tokens': 150,
+                'temperature': 0.7,
+                'do_sample': True
+            }
+        }
+        
+        response = requests.post(
+            f'https://api-inference.huggingface.co/models/{HF_MODEL}',
+            headers=headers,
+            json=payload,
+            timeout=30
+        )
+        
+        if response.status_code == 200:
+            result = response.json()
+            # 不同模型回傳格式唔同
+            if isinstance(result, list) and len(result) > 0:
+                if 'generated_text' in result[0]:
+                    ai_message = result[0]['generated_text']
+                else:
+                    ai_message = str(result[0])
+            else:
+                ai_message = str(result)
+            
+            # 移除 prompt 本身
+            if ai_message.startswith(prompt):
+                ai_message = ai_message[len(prompt):].strip()
+            
+            # 如果太長，cut短
+            if len(ai_message) > 500:
+                ai_message = ai_message[:500] + "..."
+            
+            return jsonify({
+                'message': ai_message,
+                'status': 'success'
+            })
+        else:
+            # API 失敗，返回錯誤
+            return jsonify({
+                'error': f'AI service unavailable (HTTP {response.status_code})',
+                'status': 'error'
+            }), 503
+            
+    except Exception as e:
+        print(f"AI Error: {e}")
+        return jsonify({
+            'error': 'AI service unavailable',
+            'status': 'error'
+        }), 503
+
 # ========== 統計 API ==========
 @app.route('/api/stats/enrollment-by-dept')
 @login_required
