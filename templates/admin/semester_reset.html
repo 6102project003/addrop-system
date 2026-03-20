@@ -5,8 +5,33 @@
 
 <div style="max-width: 800px; margin: 0 auto;">
 
+    <!-- Backup & Recover Section -->
+    <div class="backup-section" style="background: white; border-radius: 8px; padding: 25px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); border-left: 5px solid #27ae60;">
+        <h3 style="margin-bottom: 10px; color: #2c3e50;">💾 Backup & Recover</h3>
+        
+        <!-- Backup -->
+        <div style="margin-bottom: 20px; padding: 15px; background-color: #f8f9fa; border-radius: 8px;">
+            <h4 style="margin-bottom: 10px;">Backup Data</h4>
+            <p style="color: #666; margin-bottom: 15px;">Download all courses, students, and enrollments as a backup file.</p>
+            <form method="POST" action="{{ url_for('admin_backup') }}" style="display: inline;">
+                <button type="submit" style="padding: 10px 20px; background-color: #27ae60; color: white; border: none; border-radius: 4px; cursor: pointer;">📥 Download Backup</button>
+            </form>
+        </div>
+        
+        <!-- Recover -->
+        <div style="padding: 15px; background-color: #fff3cd; border-radius: 8px; border: 1px solid #ffeeba;">
+            <h4 style="margin-bottom: 10px; color: #856404;">⚠️ Recover Data</h4>
+            <p style="color: #856404; margin-bottom: 15px;">Upload a backup file to restore all courses, students, and enrollments. This will overwrite existing data!</p>
+            <form method="POST" action="{{ url_for('admin_recover') }}" enctype="multipart/form-data">
+                <input type="file" name="backup_file" accept=".json" required style="margin-bottom: 10px; padding: 8px;">
+                <br>
+                <button type="submit" style="padding: 10px 20px; background-color: #f39c12; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">📂 Recover from Backup</button>
+            </form>
+        </div>
+    </div>
+
     <div class="warning-box" style="background-color: #fff3cd; border: 1px solid #ffeeba; color: #856404; padding: 15px; border-radius: 8px; margin-bottom: 30px;">
-        <strong>⚠️ Warning:</strong> These actions are irreversible. Please proceed with caution.
+        <strong>⚠️ Warning:</strong> These actions are irreversible. Please backup your data first!
     </div>
 
     <!-- Option 1: Clear Enrollments Only -->
@@ -52,6 +77,11 @@
 
 <style>
 .reset-option:hover {
+    transform: translateY(-2px);
+    transition: transform 0.2s;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15) !important;
+}
+.backup-section:hover {
     transform: translateY(-2px);
     transition: transform 0.2s;
     box-shadow: 0 4px 8px rgba(0,0,0,0.15) !important;
