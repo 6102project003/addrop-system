@@ -475,13 +475,31 @@ def admin_bulk_delete_courses():
     
     for course_id in course_ids:
         try:
-            # Check if course has enrolled students
-            course = courses_table.get_item(Key={'courseId': course_id}).get('Item', {})
-            if course.get('enrolled', 0) > 0:
-                error_count += 1
-                continue
+            # 1. 搵晒所有報讀呢個課程嘅學生
+            enrollments = enrollments_table.scan(
+                FilterExpression='courseId = :cid',
+                ExpressionAttributeValues={':cid': course_id}
+            ).get('Items', [])
             
-            # Delete the course
+            # 2. 對每個學生，從佢嘅 enrolledCourses 入面移除呢個 course
+            for enrollment in enrollments:
+                student_id = enrollment['studentId']
+                student_resp = students_table.get_item(Key={'studentId': student_id})
+                student = student_resp.get('Item', {})
+                enrolled = student.get('enrolledCourses', [])
+                
+                if course_id in enrolled:
+                    enrolled.remove(course_id)
+                    students_table.update_item(
+                        Key={'studentId': student_id},
+                        UpdateExpression='SET enrolledCourses = :e',
+                        ExpressionAttributeValues={':e': enrolled}
+                    )
+                
+                # 刪除 enrollment record
+                enrollments_table.delete_item(Key={'enrollmentId': enrollment['enrollmentId']})
+            
+            # 3. Delete the course
             courses_table.delete_item(Key={'courseId': course_id})
             success_count += 1
             
@@ -489,7 +507,7 @@ def admin_bulk_delete_courses():
             print(f"Error deleting course {course_id}: {e}")
             error_count += 1
     
-    flash(f"Successfully deleted {success_count} courses" + (f", {error_count} skipped (has enrolled students)" if error_count else ""), 'success')
+    flash(f"Successfully deleted {success_count} courses" + (f", {error_count} failed" if error_count else ""), 'success')
     return redirect(url_for('admin_courses'))
 
 @app.route('/api/course/<course_id>/students', methods=['GET'])
