@@ -266,18 +266,9 @@ def enroll_course(student_id, course_id):
     
     course = course_resp['Item']
     
-    # 檢查名額
+    # 檢查名額 - 直接返回 error，唔加 waitlist
     if course['enrolled'] >= course['capacity']:
-        # 加入候補
-        waitlist = course.get('waitlist', [])
-        if student_id not in waitlist:
-            waitlist.append(student_id)
-            courses_table.update_item(
-                Key={'courseId': course_id},
-                UpdateExpression='SET waitlist = :w',
-                ExpressionAttributeValues={':w': waitlist}
-            )
-        return jsonify({'message': 'Course full, added to waitlist'})
+        return jsonify({'error': 'Course is full'}), 400
     
     # ===== 時間衝突檢查 =====
     student_resp = students_table.get_item(Key={'studentId': student_id})
@@ -288,11 +279,9 @@ def enroll_course(student_id, course_id):
     new_day = course.get('schedule', {}).get('day')
     new_time = course.get('schedule', {}).get('time')
     
-    # 如果新課程冇時間，就當冇衝突
     if not new_day or not new_time:
         return jsonify({'error': 'Course schedule not available'}), 400
     
-    # 拆新課程嘅開始同結束時間
     try:
         new_start, new_end = new_time.split('-')
     except:
@@ -307,7 +296,6 @@ def enroll_course(student_id, course_id):
         old_day = c.get('schedule', {}).get('day')
         old_time = c.get('schedule', {}).get('time')
         
-        # 如果唔同日子，就冇衝突
         if old_day != new_day:
             continue
             
@@ -319,12 +307,8 @@ def enroll_course(student_id, course_id):
         except:
             continue
         
-        # 時間衝突檢查：
-        # 新課程 start < 舊課程 end  AND 新課程 end > 舊課程 start
         if new_start < old_end and new_end > old_start:
             return jsonify({'error': f'Schedule conflict with {c.get("courseId")} - {c.get("name")}'}), 400
-    
-    # ===== 時間檢查完畢 =====
     
     # 加選
     enrollment_id = str(uuid.uuid4())
