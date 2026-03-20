@@ -759,6 +759,11 @@ def admin_bulk_delete_students():
     
     for student_id in student_ids:
         try:
+            # 拎學生資料
+            student_resp = students_table.get_item(Key={'studentId': student_id})
+            student = student_resp.get('Item', {})
+            enrolled_courses = student.get('enrolledCourses', [])
+            
             # Delete all enrollments for this student
             enrollments = enrollments_table.scan(
                 FilterExpression='studentId = :sid',
@@ -767,6 +772,15 @@ def admin_bulk_delete_students():
             
             for enrollment in enrollments:
                 enrollments_table.delete_item(Key={'enrollmentId': enrollment['enrollmentId']})
+            
+            # 更新每科嘅 enrolled 數字
+            for course_id in enrolled_courses:
+                courses_table.update_item(
+                    Key={'courseId': course_id},
+                    UpdateExpression='SET enrolled = enrolled - :dec',
+                    ConditionExpression='enrolled > :zero',
+                    ExpressionAttributeValues={':dec': 1, ':zero': 0}
+                )
             
             # Delete the student
             students_table.delete_item(Key={'studentId': student_id})
