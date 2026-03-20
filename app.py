@@ -504,7 +504,6 @@ def api_course_students(course_id):
             return jsonify({'error': 'Course not found'}), 404
         
         # 搵所有報讀呢個課程嘅學生
-        # 方法1：從 Enrollments table 搵
         enrollments = enrollments_table.scan(
             FilterExpression='courseId = :cid',
             ExpressionAttributeValues={':cid': course_id}
@@ -521,9 +520,15 @@ def api_course_students(course_id):
                     'enrolledDate': enrollment.get('timestamp', 'N/A').split('T')[0] if enrollment.get('timestamp') else 'N/A'
                 })
         
+        # 加返 instructor, schedule, location
+        schedule = f"{course.get('schedule', {}).get('day', '')} {course.get('schedule', {}).get('time', '')}"
+        
         return jsonify({
             'courseId': course_id,
             'courseName': course.get('name', ''),
+            'instructor': course.get('instructor', 'TBA'),
+            'schedule': schedule.strip(),
+            'location': course.get('location', 'TBA'),
             'enrolled': course.get('enrolled', 0),
             'capacity': course.get('capacity', 0),
             'students': students
