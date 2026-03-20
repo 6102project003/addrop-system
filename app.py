@@ -1190,9 +1190,9 @@ def admin_recover():
     
     return redirect(url_for('admin_semester_reset'))
 
-# ========== Free AI Chatbot (Hugging Face) ==========
-HF_API_TOKEN = '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'  # 貼你嘅 token
-HF_MODEL = 'microsoft/DialoGPT-small'  # 免費模型
+# ========== Cloudflare Workers AI Chatbot ==========
+CLOUDFLARE_ACCOUNT_ID = '08308eaf39eb875b18d852c9b2517e1d'
+CLOUDFLARE_API_TOKEN = 'cfut_iyMRaZSi4MQ9NAmzgfTNybqlXxm8MYTxhLyP3ppn61500581'
 
 @app.route('/api/chat', methods=['POST'])
 @login_required
@@ -1219,49 +1219,41 @@ def api_chat():
     
     enrolled_text = "You are currently enrolled in: " + ", ".join(courses) if courses else "You are not enrolled in any courses yet."
     
-    # 構建 prompt
-    prompt = f"""You are a helpful academic advisor. 
-The student is asking: {user_message}
+    # 系統 prompt
+    system_prompt = f"""You are a helpful academic advisor at a university.
+The student is asking for course recommendations or advice.
 {enrolled_text}
-Please give a friendly, helpful response about course recommendations. Keep it short and simple."""
+Please give a friendly, helpful response. Keep it concise (2-3 sentences). Use emojis occasionally to be friendly."""
 
     try:
-        # Call Hugging Face Inference API
+        # Call Cloudflare Workers AI
+        url = f"https://api.cloudflare.com/client/v4/accounts/{CLOUDFLARE_ACCOUNT_ID}/ai/run/@cf/meta/llama-3.1-8b-instruct"
+        
         headers = {
-            'Authorization': f'Bearer {HF_API_TOKEN}',
+            'Authorization': f'Bearer {CLOUDFLARE_API_TOKEN}',
             'Content-Type': 'application/json'
         }
         
         payload = {
-            'inputs': prompt,
-            'parameters': {
-                'max_new_tokens': 150,
-                'temperature': 0.7,
-                'do_sample': True
-            }
+            'messages': [
+                {'role': 'system', 'content': system_prompt},
+                {'role': 'user', 'content': user_message}
+            ],
+            'max_tokens': 200,
+            'temperature': 0.7
         }
         
-        response = requests.post(
-            f'https://api-inference.huggingface.co/models/{HF_MODEL}',
-            headers=headers,
-            json=payload,
-            timeout=30
-        )
+        response = requests.post(url, headers=headers, json=payload, timeout=30)
         
         if response.status_code == 200:
             result = response.json()
-            # 不同模型回傳格式唔同
-            if isinstance(result, list) and len(result) > 0:
-                if 'generated_text' in result[0]:
-                    ai_message = result[0]['generated_text']
-                else:
-                    ai_message = str(result[0])
+            # Cloudflare 回傳格式
+            if 'result' in result and 'response' in result['result']:
+                ai_message = result['result']['response']
+            elif 'result' in result and isinstance(result['result'], dict):
+                ai_message = result['result'].get('response', str(result['result']))
             else:
                 ai_message = str(result)
-            
-            # 移除 prompt 本身
-            if ai_message.startswith(prompt):
-                ai_message = ai_message[len(prompt):].strip()
             
             # 如果太長，cut短
             if len(ai_message) > 500:
@@ -1272,14 +1264,15 @@ Please give a friendly, helpful response about course recommendations. Keep it s
                 'status': 'success'
             })
         else:
-            # API 失敗，返回錯誤
+            error_msg = f'AI service error: HTTP {response.status_code}'
+            print(f"Cloudflare AI Error: {response.text}")
             return jsonify({
-                'error': f'AI service unavailable (HTTP {response.status_code})',
+                'error': error_msg,
                 'status': 'error'
             }), 503
             
     except Exception as e:
-        print(f"AI Error: {e}")
+        print(f"Cloudflare AI Error: {str(e)}")
         return jsonify({
             'error': 'AI service unavailable',
             'status': 'error'
