@@ -807,6 +807,11 @@ def admin_reset_student_password(student_id):
 @admin_required
 def admin_delete_student(student_id):
     try:
+        # 先拎學生資料，知道佢報咗咩科
+        student_resp = students_table.get_item(Key={'studentId': student_id})
+        student = student_resp.get('Item', {})
+        enrolled_courses = student.get('enrolledCourses', [])
+        
         # Delete all enrollments for this student
         enrollments = enrollments_table.scan(
             FilterExpression='studentId = :sid',
@@ -816,60 +821,20 @@ def admin_delete_student(student_id):
         for enrollment in enrollments:
             enrollments_table.delete_item(Key={'enrollmentId': enrollment['enrollmentId']})
         
+        # 更新每科嘅 enrolled 數字
+        for course_id in enrolled_courses:
+            courses_table.update_item(
+                Key={'courseId': course_id},
+                UpdateExpression='SET enrolled = enrolled - :dec',
+                ConditionExpression='enrolled > :zero',
+                ExpressionAttributeValues={':dec': 1, ':zero': 0}
+            )
+        
         # Delete the student
         students_table.delete_item(Key={'studentId': student_id})
         
-        logging.info(f"Admin deleted student {student_id}")
+        logging.info(f"Admin deleted student {student_id} and updated {len(enrolled_courses)} courses")
         return jsonify({'message': 'Student deleted successfully'})
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/admin/stats')
-@login_required
-@admin_required
-def admin_stats():
-    # 拎全部課程
-    response = courses_table.scan()
-    courses = response.get('Items', [])
-    
-    # 按 courseId 排序
-    courses.sort(key=lambda x: x.get('courseId', ''))
-    
-    return render_template('admin/stats.html', user=session, courses=courses)
-
-@app.route('/api/student/<student_id>/courses', methods=['GET'])
-@login_required
-@admin_required
-def api_student_courses(student_id):
-    try:
-        # 拎學生資料
-        student_resp = students_table.get_item(Key={'studentId': student_id})
-        student = student_resp.get('Item', {})
-        
-        if not student:
-            return jsonify({'error': 'Student not found'}), 404
-        
-        # 拎已選課程 IDs
-        enrolled_ids = student.get('enrolledCourses', [])
-        
-        # 拎課程詳細資料
-        courses = []
-        for cid in enrolled_ids:
-            course = courses_table.get_item(Key={'courseId': cid}).get('Item', {})
-            if course:
-                courses.append({
-                    'courseId': course.get('courseId'),
-                    'name': course.get('name'),
-                    'schedule': course.get('schedule'),
-                    'location': course.get('location', 'TBA')
-                })
-        
-        return jsonify({
-            'studentId': student_id,
-            'name': student.get('name', ''),
-            'courses': courses
-        })
-        
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
