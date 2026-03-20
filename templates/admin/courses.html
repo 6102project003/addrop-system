@@ -180,13 +180,16 @@
     </div>
 </div>
 
-<!-- View Students Modal (hidden by default) -->
+<!-- View Students Modal (hidden by default) - with Download CSV Button -->
 <div id="viewStudentsModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 1000;">
     <div style="background: white; width: 700px; margin: 100px auto; padding: 30px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.2); max-height: 70vh; overflow-y: auto;">
         <h3 style="margin-bottom: 20px; color: #2c3e50;">Enrolled Students</h3>
         <div id="courseInfo" style="margin-bottom: 20px; padding: 10px; background-color: #f8f9fa; border-radius: 4px;">
             <p><strong>Course ID:</strong> <span id="modalCourseId"></span></p>
             <p><strong>Course Name:</strong> <span id="modalCourseName"></span></p>
+            <p><strong>Instructor:</strong> <span id="modalInstructor"></span></p>
+            <p><strong>Schedule:</strong> <span id="modalSchedule"></span></p>
+            <p><strong>Location:</strong> <span id="modalLocation"></span></p>
             <p><strong>Enrolled:</strong> <span id="modalEnrolledCount"></span> / <span id="modalCapacity"></span></p>
         </div>
         
@@ -196,6 +199,7 @@
         </div>
         
         <div style="display: flex; gap: 10px; justify-content: flex-end;">
+            <button type="button" id="downloadStudentsBtn" onclick="downloadStudentList()" style="padding: 8px 16px; background-color: #27ae60; color: white; border: none; border-radius: 4px; cursor: pointer;">📥 Download CSV (Attendance Sheet)</button>
             <button type="button" onclick="closeViewModal()" style="padding: 8px 16px; background-color: #95a5a6; color: white; border: none; border-radius: 4px; cursor: pointer;">Close</button>
         </div>
     </div>
@@ -304,7 +308,6 @@ function deleteSelected() {
 
 function deleteSingle(courseId) {
     if (confirm('Are you sure you want to delete course ' + courseId + '?')) {
-        // Create a form and submit
         const form = document.createElement('form');
         form.method = 'POST';
         form.action = "{{ url_for('admin_bulk_delete_courses') }}";
@@ -320,12 +323,10 @@ function deleteSingle(courseId) {
     }
 }
 
-// Edit Capacity functions - FIXED VERSION with preventDefault
+// Edit Capacity functions
 function editCapacity(courseId) {
-    // Prevent any default action
     event.preventDefault();
     
-    // Get the row by ID
     const row = document.getElementById('course-row-' + courseId);
     if (!row) {
         alert('Error: Course row not found');
@@ -337,19 +338,14 @@ function editCapacity(courseId) {
     const enrolled = cells[7].innerText;
     const currentCapacity = cells[8].innerText.split('Edit')[0].trim();
     
-    // Fill modal
     document.getElementById('editCourseId').value = courseId;
     document.getElementById('editCourseName').value = courseName;
     document.getElementById('editEnrolled').value = enrolled;
     document.getElementById('editCapacity').value = currentCapacity;
     
-    // Set form action
     document.getElementById('editForm').action = '/admin/course/' + courseId + '/update-capacity';
-    
-    // Show modal
     document.getElementById('editModal').style.display = 'block';
     
-    // Return false to prevent any form submission
     return false;
 }
 
@@ -357,17 +353,33 @@ function closeModal() {
     document.getElementById('editModal').style.display = 'none';
 }
 
-// View Students functions
+// View Students functions with download
+let currentStudentList = [];
+let currentCourseInfo = {};
+
 function viewStudents(courseId) {
-    // Show modal
     document.getElementById('viewStudentsModal').style.display = 'block';
     document.getElementById('modalCourseId').innerText = courseId;
     
-    // Fetch course details and enrolled students
     fetch('/api/course/' + courseId + '/students')
         .then(response => response.json())
         .then(data => {
+            // Save for download
+            currentCourseInfo = {
+                courseId: data.courseId,
+                courseName: data.courseName,
+                instructor: data.instructor,
+                schedule: data.schedule,
+                location: data.location,
+                enrolled: data.enrolled,
+                capacity: data.capacity
+            };
+            currentStudentList = data.students || [];
+            
             document.getElementById('modalCourseName').innerText = data.courseName || 'Unknown';
+            document.getElementById('modalInstructor').innerText = data.instructor || 'TBA';
+            document.getElementById('modalSchedule').innerText = data.schedule || 'TBA';
+            document.getElementById('modalLocation').innerText = data.location || 'TBA';
             document.getElementById('modalEnrolledCount').innerText = data.enrolled || 0;
             document.getElementById('modalCapacity').innerText = data.capacity || 0;
             
@@ -379,6 +391,7 @@ function viewStudents(courseId) {
                 html += '<th style="padding: 8px; text-align: left;">Student ID</th>';
                 html += '<th style="padding: 8px; text-align: left;">Name</th>';
                 html += '<th style="padding: 8px; text-align: left;">Enrolled Date</th>';
+                html += '<th style="padding: 8px; text-align: left;">Attendance</th>';
                 html += '</tr></thead><tbody>';
                 
                 data.students.forEach(student => {
@@ -386,6 +399,7 @@ function viewStudents(courseId) {
                     html += `<td style="padding: 8px;">${student.studentId}</td>`;
                     html += `<td style="padding: 8px;">${student.name}</td>`;
                     html += `<td style="padding: 8px;">${student.enrolledDate || 'N/A'}</td>`;
+                    html += `<td style="padding: 8px; text-align: center;">☐</td>`;
                     html += '</tr>';
                 });
                 
@@ -399,6 +413,66 @@ function viewStudents(courseId) {
             document.getElementById('studentsList').innerHTML = '<p style="text-align: center; color: #e74c3c;">Error loading students.</p>';
             console.error('Error:', error);
         });
+}
+
+function downloadStudentList() {
+    if (currentStudentList.length === 0) {
+        alert('No students to download.');
+        return;
+    }
+    
+    // Create CSV content for attendance sheet
+    let csvContent = [];
+    
+    // Header
+    csvContent.push(['Course Attendance Sheet']);
+    csvContent.push([]);
+    csvContent.push(['Course ID:', currentCourseInfo.courseId]);
+    csvContent.push(['Course Name:', currentCourseInfo.courseName]);
+    csvContent.push(['Instructor:', currentCourseInfo.instructor]);
+    csvContent.push(['Schedule:', currentCourseInfo.schedule]);
+    csvContent.push(['Location:', currentCourseInfo.location]);
+    csvContent.push(['Total Students:', currentStudentList.length]);
+    csvContent.push([]);
+    csvContent.push(['Date:', new Date().toLocaleDateString()]);
+    csvContent.push([]);
+    
+    // Table header
+    csvContent.push(['No.', 'Student ID', 'Student Name', 'Enrolled Date', 'Attendance (✓/✗)', 'Remarks']);
+    
+    // Student rows
+    currentStudentList.forEach((student, index) => {
+        csvContent.push([
+            index + 1,
+            student.studentId,
+            student.name,
+            student.enrolledDate || 'N/A',
+            '',
+            ''
+        ]);
+    });
+    
+    // Convert to CSV string
+    const csvString = csvContent.map(row => 
+        row.map(cell => {
+            // Handle commas in cells
+            if (typeof cell === 'string' && cell.includes(',')) {
+                return `"${cell}"`;
+            }
+            return cell;
+        }).join(',')
+    ).join('\n');
+    
+    // Download
+    const blob = new Blob(["\uFEFF" + csvString], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.href = url;
+    link.setAttribute('download', `${currentCourseInfo.courseId}_${currentCourseInfo.courseName}_attendance.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
 }
 
 function closeViewModal() {
