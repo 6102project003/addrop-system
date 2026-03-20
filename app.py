@@ -1116,30 +1116,38 @@ def admin_recover():
             return redirect(url_for('admin_semester_reset'))
         
         # Clear existing data
-        # Delete all courses
         existing_courses = courses_table.scan().get('Items', [])
         for course in existing_courses:
             courses_table.delete_item(Key={'courseId': course['courseId']})
         
-        # Delete all students
         existing_students = students_table.scan().get('Items', [])
         for student in existing_students:
             students_table.delete_item(Key={'studentId': student['studentId']})
         
-        # Delete all enrollments
         existing_enrollments = enrollments_table.scan().get('Items', [])
         for enrollment in existing_enrollments:
             enrollments_table.delete_item(Key={'enrollmentId': enrollment['enrollmentId']})
         
-        # Restore courses
+        # Restore courses (FIXED: convert string to int)
         for course in backup_data['courses']:
-            # Remove any keys that shouldn't be there
+            capacity = course.get('capacity', 50)
+            enrolled = course.get('enrolled', 0)
+            credits = course.get('credits', 3)
+            
+            # Convert to int if they are strings
+            if isinstance(capacity, str):
+                capacity = int(capacity)
+            if isinstance(enrolled, str):
+                enrolled = int(enrolled)
+            if isinstance(credits, str):
+                credits = int(credits)
+            
             clean_course = {
                 'courseId': course['courseId'],
                 'name': course['name'],
-                'credits': course.get('credits', 3),
-                'capacity': course.get('capacity', 50),
-                'enrolled': course.get('enrolled', 0),
+                'credits': credits,
+                'capacity': capacity,
+                'enrolled': enrolled,
                 'department': course.get('department', ''),
                 'instructor': course.get('instructor', ''),
                 'location': course.get('location', 'TBA'),
@@ -1155,7 +1163,6 @@ def admin_recover():
                 'name': student['name'],
                 'enrolledCourses': student.get('enrolledCourses', [])
             }
-            # Keep password_hash if exists
             if 'password_hash' in student:
                 clean_student['password_hash'] = student['password_hash']
             students_table.put_item(Item=clean_student)
@@ -1178,6 +1185,7 @@ def admin_recover():
         flash(f'Invalid JSON file: {str(e)}', 'error')
     except Exception as e:
         flash(f'Recovery failed: {str(e)}', 'error')
+        logging.error(f"Recovery error: {str(e)}")
     
     return redirect(url_for('admin_semester_reset'))
 
