@@ -7,7 +7,6 @@ import io
 import uuid
 import logging
 import requests
-import google.generativeai as genai
 from flask import Flask, render_template, request, redirect, url_for, session, jsonify, flash
 from functools import wraps
 from datetime import datetime
