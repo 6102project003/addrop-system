@@ -1052,6 +1052,135 @@ def admin_reset_complete():
     
     return redirect(url_for('admin_semester_reset'))
 
+# ========== Backup & Recover Functions ==========
+@app.route('/admin/backup', methods=['POST'])
+@login_required
+@admin_required
+def admin_backup():
+    try:
+        # Get all data
+        courses = courses_table.scan().get('Items', [])
+        students = students_table.scan().get('Items', [])
+        enrollments = enrollments_table.scan().get('Items', [])
+        
+        # Create backup data structure
+        backup_data = {
+            'backup_date': datetime.utcnow().isoformat(),
+            'version': '1.0',
+            'courses': courses,
+            'students': students,
+            'enrollments': enrollments
+        }
+        
+        # Convert to JSON
+        json_data = json.dumps(backup_data, indent=2, default=str)
+        
+        # Create response with file download
+        from flask import make_response
+        response = make_response(json_data)
+        response.headers['Content-Type'] = 'application/json'
+        response.headers['Content-Disposition'] = f'attachment; filename=addrop_backup_{datetime.now().strftime("%Y%m%d_%H%M%S")}.json'
+        
+        logging.info(f"Admin downloaded backup with {len(courses)} courses, {len(students)} students, {len(enrollments)} enrollments")
+        return response
+        
+    except Exception as e:
+        flash(f'Backup failed: {str(e)}', 'error')
+        return redirect(url_for('admin_semester_reset'))
+
+@app.route('/admin/recover', methods=['POST'])
+@login_required
+@admin_required
+def admin_recover():
+    try:
+        if 'backup_file' not in request.files:
+            flash('No file uploaded', 'error')
+            return redirect(url_for('admin_semester_reset'))
+        
+        file = request.files['backup_file']
+        if file.filename == '':
+            flash('No file selected', 'error')
+            return redirect(url_for('admin_semester_reset'))
+        
+        if not file.filename.endswith('.json'):
+            flash('Please upload a JSON backup file', 'error')
+            return redirect(url_for('admin_semester_reset'))
+        
+        # Read and parse JSON
+        content = file.read().decode('utf-8')
+        backup_data = json.loads(content)
+        
+        # Validate backup structure
+        if 'courses' not in backup_data or 'students' not in backup_data or 'enrollments' not in backup_data:
+            flash('Invalid backup file format', 'error')
+            return redirect(url_for('admin_semester_reset'))
+        
+        # Clear existing data
+        # Delete all courses
+        existing_courses = courses_table.scan().get('Items', [])
+        for course in existing_courses:
+            courses_table.delete_item(Key={'courseId': course['courseId']})
+        
+        # Delete all students
+        existing_students = students_table.scan().get('Items', [])
+        for student in existing_students:
+            students_table.delete_item(Key={'studentId': student['studentId']})
+        
+        # Delete all enrollments
+        existing_enrollments = enrollments_table.scan().get('Items', [])
+        for enrollment in existing_enrollments:
+            enrollments_table.delete_item(Key={'enrollmentId': enrollment['enrollmentId']})
+        
+        # Restore courses
+        for course in backup_data['courses']:
+            # Remove any keys that shouldn't be there
+            clean_course = {
+                'courseId': course['courseId'],
+                'name': course['name'],
+                'credits': course.get('credits', 3),
+                'capacity': course.get('capacity', 50),
+                'enrolled': course.get('enrolled', 0),
+                'department': course.get('department', ''),
+                'instructor': course.get('instructor', ''),
+                'location': course.get('location', 'TBA'),
+                'schedule': course.get('schedule', {'day': 'Mon', 'time': '09:00-12:00'}),
+                'waitlist': course.get('waitlist', [])
+            }
+            courses_table.put_item(Item=clean_course)
+        
+        # Restore students
+        for student in backup_data['students']:
+            clean_student = {
+                'studentId': student['studentId'],
+                'name': student['name'],
+                'enrolledCourses': student.get('enrolledCourses', [])
+            }
+            # Keep password_hash if exists
+            if 'password_hash' in student:
+                clean_student['password_hash'] = student['password_hash']
+            students_table.put_item(Item=clean_student)
+        
+        # Restore enrollments
+        for enrollment in backup_data['enrollments']:
+            clean_enrollment = {
+                'enrollmentId': enrollment['enrollmentId'],
+                'studentId': enrollment['studentId'],
+                'courseId': enrollment['courseId'],
+                'timestamp': enrollment.get('timestamp', datetime.utcnow().isoformat()),
+                'status': enrollment.get('status', 'enrolled')
+            }
+            enrollments_table.put_item(Item=clean_enrollment)
+        
+        flash(f'Recovery successful! Restored {len(backup_data["courses"])} courses, {len(backup_data["students"])} students, {len(backup_data["enrollments"])} enrollments', 'success')
+        logging.info(f"Admin restored backup: {len(backup_data['courses'])} courses, {len(backup_data['students'])} students, {len(backup_data['enrollments'])} enrollments")
+        
+    except json.JSONDecodeError as e:
+        flash(f'Invalid JSON file: {str(e)}', 'error')
+    except Exception as e:
+        flash(f'Recovery failed: {str(e)}', 'error')
+    
+    return redirect(url_for('admin_semester_reset'))
+
 # ========== 統計 API ==========
 @app.route('/api/stats/enrollment-by-dept')
 @login_required
