@@ -416,10 +416,19 @@ function downloadStudentList() {
         return;
     }
     
-    // Create CSV content - 簡化版，只顯示 Student ID 同 Name
+    // Create CSV content
     let csvContent = [];
     
-    // Header
+    // Course information section
+    csvContent.push(['Course ID:', currentCourseInfo.courseId]);
+    csvContent.push(['Course Name:', currentCourseInfo.courseName]);
+    csvContent.push(['Instructor:', currentCourseInfo.instructor]);
+    csvContent.push(['Schedule:', currentCourseInfo.schedule]);
+    csvContent.push(['Location:', currentCourseInfo.location]);
+    csvContent.push(['Total Students:', currentStudentList.length]);
+    csvContent.push([]);  // 空白行
+    
+    // Header for student list
     csvContent.push(['Student ID', 'Student Name']);
     
     // Student rows
@@ -442,7 +451,7 @@ function downloadStudentList() {
     const link = document.createElement('a');
     const url = URL.createObjectURL(blob);
     link.href = url;
-    link.setAttribute('download', `${currentCourseInfo.courseId}_${currentCourseInfo.courseName}_students.csv`);
+    link.setAttribute('download', `${currentCourseInfo.courseId}_${currentCourseInfo.courseName}_attendance.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
