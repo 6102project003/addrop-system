@@ -560,9 +560,40 @@ def api_course_students(course_id):
 @login_required
 @admin_required
 def admin_delete_course(course_id):
-    courses_table.delete_item(Key={'courseId': course_id})
-    logging.info(f"Admin deleted course {course_id}")
-    flash(f'Course {course_id} deleted successfully', 'success')
+    try:
+        # 1. 搵晒所有報讀呢個課程嘅學生
+        enrollments = enrollments_table.scan(
+            FilterExpression='courseId = :cid',
+            ExpressionAttributeValues={':cid': course_id}
+        ).get('Items', [])
+        
+        # 2. 對每個學生，從佢嘅 enrolledCourses 入面移除呢個 course
+        for enrollment in enrollments:
+            student_id = enrollment['studentId']
+            student_resp = students_table.get_item(Key={'studentId': student_id})
+            student = student_resp.get('Item', {})
+            enrolled = student.get('enrolledCourses', [])
+            
+            if course_id in enrolled:
+                enrolled.remove(course_id)
+                students_table.update_item(
+                    Key={'studentId': student_id},
+                    UpdateExpression='SET enrolledCourses = :e',
+                    ExpressionAttributeValues={':e': enrolled}
+                )
+            
+            # 刪除 enrollment record
+            enrollments_table.delete_item(Key={'enrollmentId': enrollment['enrollmentId']})
+        
+        # 3. Delete the course
+        courses_table.delete_item(Key={'courseId': course_id})
+        
+        logging.info(f"Admin deleted course {course_id} and removed {len(enrollments)} enrollments")
+        flash(f'Course {course_id} deleted successfully', 'success')
+        
+    except Exception as e:
+        flash(f'Error deleting course: {str(e)}', 'error')
+    
     return redirect(url_for('admin_courses'))
 
 @app.route('/admin/students')
