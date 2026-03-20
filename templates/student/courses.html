@@ -53,14 +53,11 @@
             <p><strong>Location:</strong> {{ course.location or 'TBA' }}</p>
             <p><strong>Schedule:</strong> {{ course.schedule.day }} {{ course.schedule.time }}</p>
             <p><strong>Enrolled:</strong> {{ course.enrolled }} / {{ course.capacity }}</p>
-            {% if user.user_id in course.waitlist %}
-            <p class="waitlist">You are on waitlist (position {{ course.waitlist.index(user.user_id) + 1 }})</p>
-            {% endif %}
             <div class="course-actions">
                 <button onclick="enrollCourse('{{ course.courseId }}')" 
-                        {% if course.courseId in enrolled %}disabled{% endif %}
-                        style="{% if course.courseId in enrolled %}opacity: 0.5; cursor: not-allowed;{% endif %}">
-                    {% if course.courseId in enrolled %}Enrolled{% else %}Enroll{% endif %}
+                        {% if course.courseId in enrolled or course.enrolled >= course.capacity %}disabled{% endif %}
+                        style="{% if course.courseId in enrolled or course.enrolled >= course.capacity %}opacity: 0.5; cursor: not-allowed;{% endif %}">
+                    {% if course.courseId in enrolled %}Enrolled{% elif course.enrolled >= course.capacity %}Full{% else %}Enroll{% endif %}
                 </button>
                 <button onclick="dropCourse('{{ course.courseId }}')" class="drop-btn"
                         {% if course.courseId not in enrolled %}disabled style="opacity: 0.5; cursor: not-allowed;"{% endif %}>
