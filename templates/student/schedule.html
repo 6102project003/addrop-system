@@ -68,7 +68,7 @@
                 ] %}
                 {% set days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'] %}
                 
-                {# 10 種顏色 (50% 透明度) #}
+                {# 10 colors (50% transparency) #}
                 {% set colors = [
                     'rgba(255, 99, 132, 0.5)',
                     'rgba(54, 162, 235, 0.5)',
@@ -95,7 +95,7 @@
                                     {% set start_time = course.schedule.time.split('-')[0] %}
                                     {% set end_time = course.schedule.time.split('-')[1] %}
                                     
-                                    {# 所有時間格都有顏色 #}
+                                    {# All time frames are colored #}
                                     {% if slot >= start_time and slot < end_time %}
                                         {% set course_index = loop.index0 %}
                                         {% set start_hour = start_time.split(':')[0]|int %}
@@ -111,7 +111,7 @@
                                                     box-sizing: border-box;">
                                         </div>
                                         
-                                        {# 淨係第二格顯示文字 #}
+                                        {# The second cell displays text #}
                                         {% if current_hour == start_hour + 1 %}
                                             <div style="position: relative;
                                                         z-index: 1;
