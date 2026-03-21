@@ -374,7 +374,7 @@ function viewStudents(courseId) {
                 capacity: data.capacity
             };
             
-            // 排序學生按 studentId
+            // Sort students by studentId
             currentStudentList = (data.students || []).sort((a, b) => 
                 a.studentId.localeCompare(b.studentId)
             );
