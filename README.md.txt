@@ -1,12 +1,20 @@
 # Add/Drop System
 
-A full-stack course registration system built with Python Flask and AWS DynamoDB.
+A full-stack course registration system for university students and administrators.
 
 ## Features
-- Student: Browse courses, enroll/drop classes, view schedule
-- Admin: Manage courses, view enrollment statistics (pie/bar charts)
 
-## Setup
-1. Install dependencies: `pip install -r requirements.txt`
-2. Configure AWS credentials
-3. Run: `python app.py`
+### Students
+- Browse courses with search and filter
+- Enroll/Drop courses with capacity and schedule conflict checking
+- View personal timetable
+- Change password
+- AI Academic Advisor (powered by Cloudflare Workers AI)
+
+### Administrators
+- Manage courses (CRUD, bulk upload CSV, edit capacity)
+- Manage students (CRUD, bulk upload CSV, reset password)
+- View enrollment statistics (pie/bar charts)
+- Export student list as CSV for attendance
+- Semester reset with backup/recover
+- Change password
