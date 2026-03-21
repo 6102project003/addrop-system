@@ -12,7 +12,7 @@ from functools import wraps
 from datetime import datetime
 
 app = Flask(__name__)
-app.secret_key = 'your-secret-key-here'  # 改做安全嘅 key
+app.secret_key = 'your-secret-key-here'  
 
 # Set up logging
 logging.basicConfig(
@@ -20,14 +20,14 @@ logging.basicConfig(
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
 
-# AWS 設定
+# AWS settings
 dynamodb = boto3.resource('dynamodb', region_name='us-east-1')
 courses_table = dynamodb.Table('Courses')
 students_table = dynamodb.Table('Students')
 enrollments_table = dynamodb.Table('Enrollments')
 admins_table = dynamodb.Table('Admins')
 
-# ========== 登入裝飾器 ==========
+# ========== Login Decorator ==========
 def login_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
@@ -44,7 +44,7 @@ def admin_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
-# ========== 認證路由 ==========
+# ========== Authentication Route ==========
 @app.route('/')
 def index():
     if 'user_id' in session:
@@ -59,7 +59,7 @@ def login():
         user_id = request.form['user_id']
         password = request.form['password']
         
-        # Admin login - 統一用 admin / admin123
+        # Admin login - Unified use admin / admin123
         if user_id == 'admin':
             # Check if admin exists
             response = admins_table.get_item(Key={'adminId': 'admin'})
@@ -132,18 +132,18 @@ def logout():
     session.clear()
     return redirect(url_for('login'))
 
-# ========== 學生路由 ==========
+# ========== Student Route ==========
 @app.route('/student/courses')
 @login_required
 def student_courses():
     if session.get('role') != 'student':
         return redirect(url_for('admin_courses'))
     
-    # 拎全部課程 (for dropdown)
+    # Search all courses (for dropdown)
     response = courses_table.scan()
     all_courses = response.get('Items', [])
     
-    # 拎搜尋參數
+    # Search parameters
     search_term = request.args.get('search', '').lower()
     selected_dept = request.args.get('department', '')
     
@@ -162,7 +162,7 @@ def student_courses():
         else:
             filtered_courses.append(course)
     
-    # 拎學生已選課程
+    # Search students' chosen courses
     student_resp = students_table.get_item(Key={'studentId': session['user_id']})
     student = student_resp.get('Item', {})
     enrolled = student.get('enrolledCourses', [])
@@ -181,7 +181,7 @@ def student_schedule():
     if session.get('role') != 'student':
         return redirect(url_for('admin_courses'))
     
-    # 拎學生已選課程詳細資料
+    # Detailed Information on Selected Courses by Students
     student_resp = students_table.get_item(Key={'studentId': session['user_id']})
     student = student_resp.get('Item', {})
     enrolled_ids = student.get('enrolledCourses', [])
@@ -192,14 +192,14 @@ def student_schedule():
         if course:
             courses.append(course)
     
-    # 按時間排序
+    # Sort by time
     courses.sort(key=lambda x: x.get('schedule', {}).get('time', ''))
     
     return render_template('student/schedule.html', 
                          courses=courses,
                          user=session)
 
-# ========== 學生 Change Password ==========
+# ========== Student Change Password ==========
 @app.route('/student/change-password', methods=['GET', 'POST'])
 @login_required
 def student_change_password():
@@ -220,7 +220,7 @@ def student_change_password():
         
         stored_hash = student.get('password_hash')
         
-        # 如果冇 hash，用舊方法 check
+        # If there is no hash, use the old method to check.
         if not stored_hash:
             old_password = student.get('password', session['user_id'].replace('s', ''))
             if current_password != old_password:
@@ -231,7 +231,7 @@ def student_change_password():
                 flash('Current password is incorrect', 'error')
                 return redirect(url_for('student_change_password'))
         
-        # Hash 新密碼
+        # Hash new password
         new_password_hash = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
         
         students_table.update_item(
@@ -245,7 +245,7 @@ def student_change_password():
     
     return render_template('student/change_password.html', user=session)
 
-# ========== 學生 API（加退選）=========
+# ========== Student API (Add/Drop) =========
 @app.route('/api/enroll', methods=['POST'])
 @login_required
 def api_enroll():
@@ -260,23 +260,23 @@ def api_enroll():
         return drop_course(student_id, course_id)
 
 def enroll_course(student_id, course_id):
-    # 檢查課程是否存在
+    # Check if the course exists
     course_resp = courses_table.get_item(Key={'courseId': course_id})
     if 'Item' not in course_resp:
         return jsonify({'error': 'Course not found'}), 404
     
     course = course_resp['Item']
     
-    # 檢查名額 - 直接返回 error，唔加 waitlist
+    # Checking the number of slots
     if course['enrolled'] >= course['capacity']:
         return jsonify({'error': 'Course is full'}), 400
     
-    # ===== 時間衝突檢查 =====
+    # ===== Time conflict check =====
     student_resp = students_table.get_item(Key={'studentId': student_id})
     student = student_resp.get('Item', {})
     enrolled_ids = student.get('enrolledCourses', [])
     
-    # 拎新課程嘅時間
+    # New course schedule
     new_day = course.get('schedule', {}).get('day')
     new_time = course.get('schedule', {}).get('time')
     
@@ -288,7 +288,7 @@ def enroll_course(student_id, course_id):
     except:
         return jsonify({'error': 'Invalid course time format'}), 400
     
-    # Check 每一科已選課程
+    # Check each selected course
     for cid in enrolled_ids:
         c = courses_table.get_item(Key={'courseId': cid}).get('Item', {})
         if not c:
@@ -311,7 +311,7 @@ def enroll_course(student_id, course_id):
         if new_start < old_end and new_end > old_start:
             return jsonify({'error': f'Schedule conflict with {c.get("courseId")} - {c.get("name")}'}), 400
     
-    # 加選
+    # add enroll
     enrollment_id = str(uuid.uuid4())
     enrollments_table.put_item(Item={
         'enrollmentId': enrollment_id,
@@ -321,14 +321,14 @@ def enroll_course(student_id, course_id):
         'status': 'enrolled'
     })
     
-    # 更新課程人數
+    # Update course enrollment
     courses_table.update_item(
         Key={'courseId': course_id},
         UpdateExpression='SET enrolled = enrolled + :inc',
         ExpressionAttributeValues={':inc': 1}
     )
     
-    # 更新學生記錄
+    # Update student records
     students_table.update_item(
         Key={'studentId': student_id},
         UpdateExpression='SET enrolledCourses = list_append(if_not_exists(enrolledCourses, :empty), :course)',
@@ -341,28 +341,28 @@ def enroll_course(student_id, course_id):
     return jsonify({'message': 'Enrollment successful'})
 
 def drop_course(student_id, course_id):
-    # 檢查學生是否存在
+    # Check students exist
     student_resp = students_table.get_item(Key={'studentId': student_id})
     student = student_resp.get('Item', {})
     if not student:
         return jsonify({'error': 'Student not found'}), 404
     
-    # 檢查學生係咪真係有報讀呢科
+    # Check students enrolled in this course
     enrolled = student.get('enrolledCourses', [])
     if course_id not in enrolled:
         return jsonify({'error': 'You are not enrolled in this course'}), 400
     
-    # 檢查課程是否存在
+    # Check the course exists
     course_resp = courses_table.get_item(Key={'courseId': course_id})
     course = course_resp.get('Item', {})
     if not course:
         return jsonify({'error': 'Course not found'}), 404
     
-    # 檢查課程人數
+    # Check the number of students in the course
     if course.get('enrolled', 0) <= 0:
         return jsonify({'error': 'Course enrollment count error'}), 500
     
-    # 刪除 enrollment record
+    # delete enrollment record
     enrollments = enrollments_table.scan(
         FilterExpression='studentId = :sid AND courseId = :cid',
         ExpressionAttributeValues={':sid': student_id, ':cid': course_id}
@@ -371,7 +371,7 @@ def drop_course(student_id, course_id):
     for e in enrollments:
         enrollments_table.delete_item(Key={'enrollmentId': e['enrollmentId']})
     
-    # 減少課程人數
+    # Reduce the number of students in the course
     courses_table.update_item(
         Key={'courseId': course_id},
         UpdateExpression='SET enrolled = enrolled - :dec',
@@ -379,7 +379,7 @@ def drop_course(student_id, course_id):
         ExpressionAttributeValues={':dec': 1, ':zero': 0}
     )
     
-    # 從學生記錄移除
+    # Remove from student records
     enrolled.remove(course_id)
     students_table.update_item(
         Key={'studentId': student_id},
@@ -389,7 +389,7 @@ def drop_course(student_id, course_id):
     
     return jsonify({'message': 'Drop successful'})
 
-# ========== 管理員路由 ==========
+# ========== Administrator Route ==========
 @app.route('/admin/courses')
 @login_required
 @admin_required
@@ -410,7 +410,7 @@ def admin_add_course():
         'enrolled': 0,
         'department': request.form.get('department', ''),
         'instructor': request.form.get('instructor', ''),
-        'location': request.form.get('location', 'TBA'),  # 加呢行
+        'location': request.form.get('location', 'TBA'),  
         'schedule': {
             'day': request.form.get('schedule_day', 'Mon'),
             'time': request.form.get('schedule_time', '09:00-12:00')
@@ -475,13 +475,13 @@ def admin_bulk_delete_courses():
     
     for course_id in course_ids:
         try:
-            # 1. 搵晒所有報讀呢個課程嘅學生
+            # Find all the students who have enrolled in this course
             enrollments = enrollments_table.scan(
                 FilterExpression='courseId = :cid',
                 ExpressionAttributeValues={':cid': course_id}
             ).get('Items', [])
             
-            # 2. 對每個學生，從佢嘅 enrolledCourses 入面移除呢個 course
+            # For each student, remove that course from the enrolled courses list.
             for enrollment in enrollments:
                 student_id = enrollment['studentId']
                 student_resp = students_table.get_item(Key={'studentId': student_id})
@@ -496,7 +496,7 @@ def admin_bulk_delete_courses():
                         ExpressionAttributeValues={':e': enrolled}
                     )
                 
-                # 刪除 enrollment record
+                # Delete enrollment record
                 enrollments_table.delete_item(Key={'enrollmentId': enrollment['enrollmentId']})
             
             # 3. Delete the course
@@ -515,14 +515,14 @@ def admin_bulk_delete_courses():
 @admin_required
 def api_course_students(course_id):
     try:
-        # 拎課程資料
+        # Search course details
         course_resp = courses_table.get_item(Key={'courseId': course_id})
         course = course_resp.get('Item', {})
         
         if not course:
             return jsonify({'error': 'Course not found'}), 404
         
-        # 搵所有報讀呢個課程嘅學生
+        # Find all students who have enrolled in this course
         enrollments = enrollments_table.scan(
             FilterExpression='courseId = :cid',
             ExpressionAttributeValues={':cid': course_id}
@@ -539,7 +539,7 @@ def api_course_students(course_id):
                     'enrolledDate': enrollment.get('timestamp', 'N/A').split('T')[0] if enrollment.get('timestamp') else 'N/A'
                 })
         
-        # 加返 instructor, schedule, location
+        # add instructor, schedule, location
         schedule = f"{course.get('schedule', {}).get('day', '')} {course.get('schedule', {}).get('time', '')}"
         
         return jsonify({
@@ -561,13 +561,13 @@ def api_course_students(course_id):
 @admin_required
 def admin_delete_course(course_id):
     try:
-        # 1. 搵晒所有報讀呢個課程嘅學生
+        # Find all students who have enrolled in this course
         enrollments = enrollments_table.scan(
             FilterExpression='courseId = :cid',
             ExpressionAttributeValues={':cid': course_id}
         ).get('Items', [])
         
-        # 2. 對每個學生，從佢嘅 enrolledCourses 入面移除呢個 course
+        # For each student, remove that course from the enrolledCourses list.
         for enrollment in enrollments:
             student_id = enrollment['studentId']
             student_resp = students_table.get_item(Key={'studentId': student_id})
@@ -582,7 +582,7 @@ def admin_delete_course(course_id):
                     ExpressionAttributeValues={':e': enrolled}
                 )
             
-            # 刪除 enrollment record
+            # Delete enrollment record
             enrollments_table.delete_item(Key={'enrollmentId': enrollment['enrollmentId']})
         
         # 3. Delete the course
@@ -600,11 +600,11 @@ def admin_delete_course(course_id):
 @login_required
 @admin_required
 def admin_students():
-    # Scan 全部 students
+    # Scan all students
     response = students_table.scan()
     students = response.get('Items', [])
     
-    # 為每個學生計 enrolled_count
+    # For each student, count enrolled_count
     for student in students:
         enrolled_ids = student.get('enrolledCourses', [])
         student['enrolled_count'] = len(enrolled_ids)
@@ -619,20 +619,20 @@ def admin_add_student():
     name = request.form['name']
     password = request.form.get('password', '')
     
-    # 如果冇俾 password，用 studentId 數字
+    # If no password is provided, use studentId (number).
     if not password:
         password = student_id.replace('s', '')
     
-    # Hash 密碼
+    # Hash password
     password_hash = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
     
-    # 檢查學生是否已經存在
+    # Check the student already exists
     response = students_table.get_item(Key={'studentId': student_id})
     if 'Item' in response:
         flash(f'Student {student_id} already exists', 'error')
         return redirect(url_for('admin_students'))
     
-    # 新增學生 (用 password_hash 代替 password)
+    # Add a new student (replace password with password_hash)
     student = {
         'studentId': student_id,
         'name': name,
@@ -675,7 +675,7 @@ def admin_upload_students():
             name = row['name']
             password = row.get('password', student_id.replace('s', ''))
             
-            # Hash 密碼
+            # Hash password
             password_hash = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
             
             student = {
@@ -808,7 +808,7 @@ def admin_bulk_delete_students():
     
     for student_id in student_ids:
         try:
-            # 拎學生資料
+            # Search student details
             student_resp = students_table.get_item(Key={'studentId': student_id})
             student = student_resp.get('Item', {})
             enrolled_courses = student.get('enrolledCourses', [])
@@ -822,7 +822,7 @@ def admin_bulk_delete_students():
             for enrollment in enrollments:
                 enrollments_table.delete_item(Key={'enrollmentId': enrollment['enrollmentId']})
             
-            # 更新每科嘅 enrolled 數字
+            # Update the number of enrolled students for each subject
             for course_id in enrolled_courses:
                 courses_table.update_item(
                     Key={'courseId': course_id},
@@ -848,10 +848,10 @@ def admin_bulk_delete_students():
 @admin_required
 def admin_reset_student_password(student_id):
     try:
-        # 新 password = 學生ID 入面嘅數字部分
+        # New password = Student ID (input numeric part)
         new_password = student_id.replace('s', '')
         
-        # Hash 新密碼
+        # Hash password
         password_hash = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
         
         students_table.update_item(
@@ -870,7 +870,7 @@ def admin_reset_student_password(student_id):
 @admin_required
 def admin_delete_student(student_id):
     try:
-        # 先拎學生資料，知道佢報咗咩科
+        # gather the student's information to find out which subject they applied for
         student_resp = students_table.get_item(Key={'studentId': student_id})
         student = student_resp.get('Item', {})
         enrolled_courses = student.get('enrolledCourses', [])
@@ -884,7 +884,7 @@ def admin_delete_student(student_id):
         for enrollment in enrollments:
             enrollments_table.delete_item(Key={'enrollmentId': enrollment['enrollmentId']})
         
-        # 更新每科嘅 enrolled 數字
+        # Update the number of enrolled students for each subject
         for course_id in enrolled_courses:
             courses_table.update_item(
                 Key={'courseId': course_id},
@@ -905,11 +905,11 @@ def admin_delete_student(student_id):
 @login_required
 @admin_required
 def admin_stats():
-    # 拎全部課程
+    # All courses
     response = courses_table.scan()
     courses = response.get('Items', [])
     
-    # 按 courseId 排序
+    # Sort by courseId
     courses.sort(key=lambda x: x.get('courseId', ''))
     
     return render_template('admin/stats.html', user=session, courses=courses)
@@ -919,17 +919,17 @@ def admin_stats():
 @admin_required
 def api_student_courses(student_id):
     try:
-        # 拎學生資料
+        # Search student details
         student_resp = students_table.get_item(Key={'studentId': student_id})
         student = student_resp.get('Item', {})
         
         if not student:
             return jsonify({'error': 'Student not found'}), 404
         
-        # 拎已選課程 IDs
+        # Selected course IDs
         enrolled_ids = student.get('enrolledCourses', [])
         
-        # 拎課程詳細資料
+        # Get detailed course information
         courses = []
         for cid in enrolled_ids:
             course = courses_table.get_item(Key={'courseId': cid}).get('Item', {})
@@ -1283,7 +1283,7 @@ def api_chat():
     if not user_message:
         return jsonify({'error': 'No message provided'}), 400
     
-    # 拎學生已選課程做 context
+    # Use students' selected courses as context
     student_resp = students_table.get_item(Key={'studentId': session['user_id']})
     student = student_resp.get('Item', {})
     enrolled_ids = student.get('enrolledCourses', [])
@@ -1296,7 +1296,7 @@ def api_chat():
     
     enrolled_text = "You are currently enrolled in: " + ", ".join(courses) if courses else "You are not enrolled in any courses yet."
     
-    # 系統 prompt
+    # system prompt
     system_prompt = f"""You are a helpful academic advisor at a university.
 The student is asking for course recommendations or advice.
 {enrolled_text}
@@ -1324,7 +1324,7 @@ Please give a friendly, helpful response. Keep it concise (2-3 sentences). Use e
         
         if response.status_code == 200:
             result = response.json()
-            # Cloudflare 回傳格式
+            # Cloudflare return format
             if 'result' in result and 'response' in result['result']:
                 ai_message = result['result']['response']
             elif 'result' in result and isinstance(result['result'], dict):
@@ -1332,7 +1332,7 @@ Please give a friendly, helpful response. Keep it concise (2-3 sentences). Use e
             else:
                 ai_message = str(result)
             
-            # 如果太長，cut短
+            # Too long, cut it shorter
             if len(ai_message) > 500:
                 ai_message = ai_message[:500] + "..."
             
@@ -1355,7 +1355,7 @@ Please give a friendly, helpful response. Keep it concise (2-3 sentences). Use e
             'status': 'error'
         }), 503
 
-# ========== 統計 API ==========
+# ========== Statistical API ==========
 @app.route('/api/stats/enrollment-by-dept')
 @login_required
 @admin_required
