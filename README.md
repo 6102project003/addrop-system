@@ -1,3 +1,6 @@
+This is a assignment from a student at Hang Seng University in Hong Kong.
+The assignment has been submitted, please do not plagiarize.
+
 # Add/Drop System
 
 A full-stack course registration system for university students and administrators.
