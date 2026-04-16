@@ -1,4 +1,4 @@
-This is a assignment from students at Hang Seng University in Hong Kong.
+This is a assignment from students at The Hang Seng University of Hong Kong.
 The assignment has been submitted, please do not plagiarize.
 
 # Add/Drop System
